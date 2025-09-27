@@ -11,7 +11,7 @@ import ShikiHighlighter from "react-shiki/web";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "motion/react";
 import { EmptyState } from "@/components/empty-state";
 import { cn, getContentArg } from "@/lib/utils";
-import type { AgentState, Item, ItemData, ProjectData, EntityData, NoteData, ChartData, CardType, CharacterData, StorySlideData } from "@/lib/canvas/types";
+import type { AgentState, Item, ItemData, ProjectData, EntityData, NoteData, ChartData, CardType, CharacterData, StorySlideData, StoryTextData } from "@/lib/canvas/types";
 import { initialState, isNonEmptyAgentState } from "@/lib/canvas/state";
 import { projectAddField4Item, projectSetField4ItemText, projectSetField4ItemDone, projectRemoveField4Item, chartAddField1Metric, chartSetField1Label, chartSetField1Value, chartRemoveField1Metric } from "@/lib/canvas/updates";
 import useMediaQuery from "@/hooks/use-media-query";
@@ -316,6 +316,13 @@ export default function CopilotKitPage() {
           title: "",
           slides: [],
         } as StorySlideData;
+      case "story-text":
+        return {
+          title: "",
+          content: "",
+          characters: [],
+          theme: "",
+        } as StoryTextData;
       case "project":
         return {
           field1: "",
@@ -851,7 +858,7 @@ export default function CopilotKitPage() {
     description: "Create a new item.",
     available: "remote",
     parameters: [
-      { name: "type", type: "string", required: true, description: "One of: project, entity, note, chart, character." },
+      { name: "type", type: "string", required: true, description: "One of: project, entity, note, chart, character, story, story-text." },
       { name: "name", type: "string", required: false, description: "Optional item name." },
     ],
     handler: ({ type, name }: { type: string; name?: string }) => {
@@ -1180,6 +1187,83 @@ export default function CopilotKitPage() {
     },
   });
 
+  // Story text actions
+  useCopilotAction({
+    name: "setStoryTextTitle",
+    description: "Set story text title.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story text id." },
+      { name: "title", type: "string", required: true, description: "Story title." },
+    ],
+    handler: ({ itemId, title }: { itemId: string; title: string }) => {
+      updateItemData(itemId, (prev) => {
+        const std = prev as StoryTextData;
+        if (Object.prototype.hasOwnProperty.call(std, "title")) {
+          return { ...std, title } as StoryTextData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setStoryTextContent",
+    description: "Set story text content.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story text id." },
+      { name: "content", type: "string", required: true, description: "Story content." },
+    ],
+    handler: ({ itemId, content }: { itemId: string; content: string }) => {
+      updateItemData(itemId, (prev) => {
+        const std = prev as StoryTextData;
+        if (Object.prototype.hasOwnProperty.call(std, "content")) {
+          return { ...std, content } as StoryTextData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setStoryTextCharacters",
+    description: "Set story text characters.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story text id." },
+      { name: "characters", type: "string[]", required: true, description: "List of character names." },
+    ],
+    handler: ({ itemId, characters }: { itemId: string; characters: string[] }) => {
+      updateItemData(itemId, (prev) => {
+        const std = prev as StoryTextData;
+        if (Object.prototype.hasOwnProperty.call(std, "characters")) {
+          return { ...std, characters } as StoryTextData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setStoryTextTheme",
+    description: "Set story text theme.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story text id." },
+      { name: "theme", type: "string", required: true, description: "Story theme." },
+    ],
+    handler: ({ itemId, theme }: { itemId: string; theme: string }) => {
+      updateItemData(itemId, (prev) => {
+        const std = prev as StoryTextData;
+        if (Object.prototype.hasOwnProperty.call(std, "theme")) {
+          return { ...std, theme } as StoryTextData;
+        }
+        return prev;
+      });
+    },
+  });
+
   // Comic upload action - uses CopilotKit backend tools
   useCopilotAction({
     name: "processUploadedComic",
@@ -1392,10 +1476,10 @@ Which option would you prefer?`;
                     title: "Add a Character",
                     message: "Create a new character.",
                   },
-                  // {
-                  //   title: "Add a Story",
-                  //   message: "Create a new story with slides and audio.",
-                  // },
+                  {
+                    title: "Create a Story",
+                    message: "Generate a story using the characters currently on the canvas with the theme of friendship and teamwork.",
+                  },
                 ]}
               />
             )}

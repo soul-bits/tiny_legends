@@ -10,7 +10,7 @@ export interface LinkItem {
   url: string;
 }
 
-export type CardType = "project" | "entity" | "note" | "chart" | "character" | "story";
+export type CardType = "project" | "entity" | "note" | "chart" | "character" | "story" | "story-text";
 
 export interface ProjectData {
   field1: string; // text
@@ -56,12 +56,19 @@ export interface StorySlideData {
   }[];
 }
 
+export interface StoryTextData {
+  title: string;
+  content: string;
+  characters: string[];
+  theme: string;
+}
+
 export interface ChartData {
   field1: ChartMetric[]; // metrics
   field1_id: number; // id counter
 }
 
-export type ItemData = ProjectData | EntityData | NoteData | ChartData | CharacterData | StorySlideData;
+export type ItemData = ProjectData | EntityData | NoteData | ChartData | CharacterData | StorySlideData | StoryTextData;
 
 export interface Item {
   id: string;

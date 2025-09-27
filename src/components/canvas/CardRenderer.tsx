@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { X, Plus } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Progress } from "@/components/ui/progress";
-import type { ChartData, CharacterData, EntityData, Item, ItemData, NoteData, ProjectData, StorySlideData } from "@/lib/canvas/types";
+import type { ChartData, CharacterData, EntityData, Item, ItemData, NoteData, ProjectData, StorySlideData, StoryTextData } from "@/lib/canvas/types";
 import { chartAddField1Metric, chartRemoveField1Metric, chartSetField1Label, chartSetField1Value, projectAddField4Item, projectRemoveField4Item, projectSetField4ItemDone, projectSetField4ItemText } from "@/lib/canvas/updates";
 import CharacterCard from "./CharacterCard";
 import StorySlide from "./StorySlide";
@@ -211,6 +211,48 @@ export function CardRenderer(props: {
         onUpdateData={updateStoryData}
         isEditing={true}
       />
+    );
+  }
+
+  if (item.type === "story-text") {
+    const d = item.data as StoryTextData;
+    const updateStoryTextData = (updater: (prev: StoryTextData) => StoryTextData) => {
+      onUpdateData((prev) => updater(prev as StoryTextData));
+    };
+    return (
+      <div className="mt-4">
+        <div className="mb-3">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Story Title</label>
+          <input
+            value={d.title}
+            onChange={(e) => updateStoryTextData(prev => ({ ...prev, title: e.target.value }))}
+            className="w-full rounded-md border px-2 py-1.5 text-sm outline-none transition-colors placeholder:text-gray-400 hover:ring-1 hover:ring-border focus:ring-2 focus:ring-accent/50 focus:shadow-sm focus:bg-accent/10 focus:text-accent focus:placeholder:text-accent/65"
+            placeholder="Story title"
+          />
+        </div>
+        <div className="mb-3">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Characters</label>
+          <div className="flex flex-wrap gap-1">
+            {d.characters.map((char, index) => (
+              <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                {char}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="mb-3">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Theme</label>
+          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+            {d.theme}
+          </span>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-500">Story Content</label>
+          <div className="max-h-96 overflow-y-auto rounded-md border bg-white/60 p-3 text-sm leading-6">
+            <div className="whitespace-pre-wrap">{d.content}</div>
+          </div>
+        </div>
+      </div>
     );
   }
   const e = item.data as EntityData;

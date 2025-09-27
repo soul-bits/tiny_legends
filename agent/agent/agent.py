@@ -559,6 +559,31 @@ def removeStorySlide(
 ) -> str:
     return f"removeStorySlide({itemId}, {slideId})"
 
+# Story text actions
+def setStoryTextTitle(
+    title: Annotated[str, "Story title."], 
+    itemId: Annotated[str, "Story text id."]
+) -> str:
+    return f"setStoryTextTitle({title}, {itemId})"
+
+def setStoryTextContent(
+    content: Annotated[str, "Story content."], 
+    itemId: Annotated[str, "Story text id."]
+) -> str:
+    return f"setStoryTextContent({content}, {itemId})"
+
+def setStoryTextCharacters(
+    characters: Annotated[List[str], "List of character names."], 
+    itemId: Annotated[str, "Story text id."]
+) -> str:
+    return f"setStoryTextCharacters({characters}, {itemId})"
+
+def setStoryTextTheme(
+    theme: Annotated[str, "Story theme."], 
+    itemId: Annotated[str, "Story text id."]
+) -> str:
+    return f"setStoryTextTheme({theme}, {itemId})"
+
 FIELD_SCHEMA = (
     "FIELD SCHEMA (authoritative):\n"
     "- project.data:\n"
@@ -614,6 +639,13 @@ SYSTEM_PROMPT = (
     "- Use setStoryTitle(title, itemId) to set title\n"
     "- Use addStorySlide(caption, duration, itemId) for each slide\n"
     "\n"
+    "STORY TEXT CREATION:\n"
+    "- Use createItem('story-text', title) to create story text card\n"
+    "- Use setStoryTextTitle(title, itemId) to set title\n"
+    "- Use setStoryTextContent(content, itemId) to set story content\n"
+    "- Use setStoryTextCharacters(characters, itemId) to set character list\n"
+    "- Use setStoryTextTheme(theme, itemId) to set story theme\n"
+    "\n"
     "Always use the latest shared state as ground truth.\n"
 )
 
@@ -636,6 +668,10 @@ agentic_chat_router = get_ag_ui_workflow_router(
         # setStorySlideCaption,  # Not used in current workflow
         # setStorySlideDuration,  # Not used in current workflow
         # removeStorySlide,  # Not used in current workflow
+        setStoryTextTitle,
+        setStoryTextContent,
+        setStoryTextCharacters,
+        setStoryTextTheme,
     ],
     backend_tools=[
         process_uploaded_comic,
