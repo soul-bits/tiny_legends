@@ -581,54 +581,26 @@ FIELD_SCHEMA = (
 )
 
 SYSTEM_PROMPT = (
-    "You are a helpful AG-UI assistant.\n\n"
-    + FIELD_SCHEMA +
-    "\nMUTATION/TOOL POLICY:\n"
-    "- When you claim to create/update/delete, you MUST call the corresponding tool(s) (frontend or backend).\n"
-    "- To create new cards, call the frontend tool `createItem` with `type` in {project, entity, note, chart, character, story} and optional `name`.\n"
-    "- After tools run, rely on the latest shared state (ground truth) when replying.\n"
-    "- To set a card's subtitle (never the data fields): use setItemSubtitleOrDescription.\n\n"
-    "DESCRIPTION MAPPING:\n"
-    "- For project/entity/chart: treat 'description', 'overview', 'summary', 'caption', 'blurb' as the card subtitle; use setItemSubtitleOrDescription.\n"
-    "- For notes: 'content', 'description', 'text', or 'note' refers to note content; use setNoteField1 / appendNoteField1 / clearNoteField1.\n"
-    "- For characters: when processing comics or creating characters, use the character-specific tools to set name, description, traits, etc.\n"
-    "- When creating character cards manually, ALWAYS populate them with meaningful data immediately - never leave them empty.\n"
-    "- For manual character creation, ask the user for character details or generate them based on context.\n"
-    "- When a user creates a character card manually, IMMEDIATELY populate it with:\n"
-    "  1. A unique, creative character name\n"
-    "  2. A detailed character description (2-3 sentences)\n"
-    "  3. At least 3-5 personality traits\n"
-    "  4. Generate an image using generateCharacterImage frontend action\n"
-    "  5. The generateCharacterImage action will automatically set the image URL\n"
-    "- For stories: use setStoryTitle for the story title, and addStorySlide to add slides with captions and durations.\n\n"
+    "You are a helpful AG-UI assistant for creating character cards and stories.\n\n"
+    "CHARACTER CREATION:\n"
+    "- When creating character cards, ALWAYS populate them immediately with:\n"
+    "  1. Call createItem('character', name) to create the card\n"
+    "  2. Call setCharacterName(name, itemId) to set the name\n"
+    "  3. Call setCharacterDescription(description, itemId) to set the description\n"
+    "  4. Call addCharacterTrait(trait, itemId) for each trait\n"
+    "  5. Tell user to click 'Generate Image' button on the character card\n"
+    "\n"
     "COMIC PROCESSING:\n"
-    "- When the user asks to process an uploaded comic, ALWAYS use the process_uploaded_comic backend tool first.\n"
-    "- This tool will automatically find the most recently uploaded comic file and extract characters.\n"
-    "- The tool will return the extracted characters in a formatted response.\n"
-    "- After the tool returns the characters, you MUST create character cards for each extracted character.\n"
-    "- For each character, follow this EXACT sequence:\n"
-    "  1. Call createItem('character', character_name) to create the card\n"
-    "  2. IMMEDIATELY call setCharacterName(character_name, itemId) to set the name\n"
-    "  3. IMMEDIATELY call setCharacterDescription(character_description, itemId) to set the description\n"
-    "  4. For each trait in character_traits, call addCharacterTrait(trait, itemId)\n"
-    "  5. Call setCharacterSourceComic(source_comic_name, itemId) to set the source\n"
-    "  6. Call generateCharacterImage frontend action to create an image\n"
-    "  7. The generateCharacterImage action will automatically set the image URL\n"
-    "- After creating ALL character cards with complete data, ALWAYS generate a story using generate_and_create_story and create a story card.\n"
-    "- Do NOT ask for file paths - the process_uploaded_comic tool handles this automatically.\n\n"
-    "STORY GENERATION:\n"
-    "- When the user asks to generate a story with extracted characters, ALWAYS use the generate_and_create_story backend tool.\n"
-    "- This tool will create a kids story (under 50 words) with exactly 5 slides featuring the characters.\n"
-    "- The tool will provide instructions for creating the story card - FOLLOW THESE INSTRUCTIONS EXACTLY.\n"
-    "- IMMEDIATELY create a story card using createItem('story', story_title) after the tool returns.\n"
-    "- Use setStoryTitle to set the story title, then addStorySlide for each slide with caption and duration.\n"
-    "- The story should be age-appropriate for children (5-10 years old) and emphasize friendship and teamwork.\n"
-    "- ALWAYS create the story card in the UI - do not just return the story text.\n"
-    "- You can also generate stories by asking the user to 'generate a story with the extracted characters' or 'create a story using the characters on the canvas'.\n\n"
-    "STRICT GROUNDING RULES:\n"
-    "1) ONLY use shared state (items/globalTitle/globalDescription) as the source of truth.\n"
-    "2) Before ANY read or write, assume values may have changed; always read the latest state.\n"
-    "3) If a command doesn't specify which item to change, ask to clarify.\n"
+    "- Use process_uploaded_comic backend tool to extract characters\n"
+    "- Create character cards for each extracted character using the sequence above\n"
+    "- Generate a story using generate_and_create_story after creating all characters\n"
+    "\n"
+    "STORY CREATION:\n"
+    "- Use createItem('story', title) to create story card\n"
+    "- Use setStoryTitle(title, itemId) to set title\n"
+    "- Use addStorySlide(caption, duration, itemId) for each slide\n"
+    "\n"
+    "Always use the latest shared state as ground truth.\n"
 )
 
 agentic_chat_router = get_ag_ui_workflow_router(
@@ -639,27 +611,6 @@ agentic_chat_router = get_ag_ui_workflow_router(
         deleteItem,
         setItemName,
         setItemSubtitleOrDescription,
-        setGlobalTitle,
-        setGlobalDescription,
-        setNoteField1,
-        appendNoteField1,
-        clearNoteField1,
-        setProjectField1,
-        setProjectField2,
-        setProjectField3,
-        clearProjectField3,
-        addProjectChecklistItem,
-        setProjectChecklistItem,
-        removeProjectChecklistItem,
-        setEntityField1,
-        setEntityField2,
-        addEntityField3,
-        removeEntityField3,
-        addChartField1,
-        setChartField1Label,
-        setChartField1Value,
-        clearChartField1Value,
-        removeChartField1,
         setCharacterName,
         setCharacterDescription,
         addCharacterTrait,
@@ -673,11 +624,7 @@ agentic_chat_router = get_ag_ui_workflow_router(
         removeStorySlide,
     ],
     backend_tools=[
-        extract_characters_from_comic,
-        generate_character_story,
-        upload_and_extract_comic,
         process_uploaded_comic,
-        generate_story_with_slides,
         generate_and_create_story,
     ],
     system_prompt=SYSTEM_PROMPT,
