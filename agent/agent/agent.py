@@ -11,6 +11,7 @@ from llama_index.readers.file import PDFReader
 
 def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or text comic file"]) -> List[Dict]:
     """Extract characters from a comic PDF or text file and return character data."""
+    print(f"🔍 [TOOL CALL] extract_characters_from_comic called with file: {file_path}")
     try:
         # Check file extension to determine how to read the file
         if file_path.lower().endswith('.pdf'):
@@ -53,9 +54,11 @@ def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or 
         
         try:
             characters = json.loads(response_text)
+            print(f"✅ [TOOL CALL] extract_characters_from_comic completed: found {len(characters)} characters")
             return characters
         except json.JSONDecodeError as e:
             # Fallback: extract names manually
+            print(f"⚠️ [TOOL CALL] extract_characters_from_comic JSON parse error, using fallback")
             return [{"name": "Sample Character", "description": "A character from the comic", "traits": ["brave", "mysterious"]}]
             
     except Exception as e:
@@ -95,6 +98,7 @@ def generate_character_story(characters: Annotated[List[Dict], "List of characte
 
 def upload_and_extract_comic(file_path: Annotated[str, "Path to the comic file to upload and process"]) -> str:
     """Upload a comic file and extract characters from it, then create character cards on the canvas."""
+    print(f"📁 [TOOL CALL] upload_and_extract_comic called with file: {file_path}")
     try:
         # Extract characters from the comic file
         characters = extract_characters_from_comic(file_path)
@@ -121,6 +125,7 @@ I will now create character cards for each of these characters on the canvas. Yo
 
 def process_uploaded_comic() -> str:
     """Process the most recently uploaded comic file and extract characters from it."""
+    print(f"🎯 [TOOL CALL] process_uploaded_comic called")
     import os
     import glob
     

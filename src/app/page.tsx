@@ -39,6 +39,17 @@ export default function CopilotKitPage() {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [showJsonView, setShowJsonView] = useState<boolean>(false);
   const [showStoryView, setShowStoryView] = useState<boolean>(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    isUploading: boolean;
+    fileName: string;
+    status: 'uploading' | 'success' | 'error';
+    message: string;
+  }>({
+    isUploading: false,
+    fileName: '',
+    status: 'uploading',
+    message: ''
+  });
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const { scrollY } = useScroll({ container: scrollAreaRef });
   const headerScrollThreshold = 64;
@@ -1158,6 +1169,14 @@ export default function CopilotKitPage() {
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
+                    // Set uploading state
+                    setUploadStatus({
+                      isUploading: true,
+                      fileName: file.name,
+                      status: 'uploading',
+                      message: 'Uploading comic file...'
+                    });
+
                     try {
                       // Upload the file to get a file path
                       const formData = new FormData();
@@ -1173,15 +1192,40 @@ export default function CopilotKitPage() {
                         const filePath = uploadResult.filePath;
                         
                         if (filePath) {
-                          alert(`File uploaded successfully! You can now ask the AI to process it by typing "Process the uploaded comic" or clicking the suggestion.`);
+                          setUploadStatus({
+                            isUploading: false,
+                            fileName: file.name,
+                            status: 'success',
+                            message: 'Comic uploaded successfully! Click "Process Uploaded Comic" to extract characters.'
+                          });
+                          
+                          // Clear success message after 5 seconds
+                          setTimeout(() => {
+                            setUploadStatus(prev => ({ ...prev, message: '' }));
+                          }, 5000);
                         } else {
-                          alert("File uploaded but no file path returned.");
+                          setUploadStatus({
+                            isUploading: false,
+                            fileName: file.name,
+                            status: 'error',
+                            message: 'File uploaded but no file path returned.'
+                          });
                         }
                       } else {
-                        alert(`Error uploading file: ${uploadResponse.statusText}`);
+                        setUploadStatus({
+                          isUploading: false,
+                          fileName: file.name,
+                          status: 'error',
+                          message: `Error uploading file: ${uploadResponse.statusText}`
+                        });
                       }
                     } catch (error) {
-                      alert(`Error processing file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                      setUploadStatus({
+                        isUploading: false,
+                        fileName: file.name,
+                        status: 'error',
+                        message: `Error processing file: ${error instanceof Error ? error.message : 'Unknown error'}`
+                      });
                     }
                   }
                 }}
@@ -1193,9 +1237,38 @@ export default function CopilotKitPage() {
                 size="sm"
                 className="w-full"
                 onClick={() => document.getElementById('chat-file-upload')?.click()}
+                disabled={uploadStatus.isUploading}
               >
-                📁 Upload Comic File
+                {uploadStatus.isUploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Uploading...
+                  </>
+                ) : (
+                  '📁 Upload Comic File'
+                )}
               </Button>
+              
+              {/* Upload Status Display */}
+              {uploadStatus.message && (
+                <div className={`mt-2 p-2 rounded-md text-xs ${
+                  uploadStatus.status === 'success' 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : uploadStatus.status === 'error'
+                    ? 'bg-red-50 text-red-700 border border-red-200'
+                    : 'bg-blue-50 text-blue-700 border border-blue-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {uploadStatus.status === 'success' && '✅'}
+                    {uploadStatus.status === 'error' && '❌'}
+                    {uploadStatus.status === 'uploading' && '⏳'}
+                    <span className="font-medium">{uploadStatus.fileName}</span>
+                  </div>
+                  <div className="mt-1 text-xs opacity-80">
+                    {uploadStatus.message}
+                  </div>
+                </div>
+              )}
             </div>
             {/* Chat Content - conditionally rendered to avoid duplicate rendering */}
             {isDesktop && (
