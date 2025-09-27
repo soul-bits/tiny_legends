@@ -25,7 +25,7 @@ def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or 
                 content = file.read()
         
         # Extract characters using LLM
-        llm = OpenAI(model="gpt-3.5-turbo")
+        llm = OpenAI(model="gpt-4o-mini")
         prompt = f"""
         Extract all unique character names from this comic content. 
         For each character, provide:
@@ -64,10 +64,33 @@ def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or 
     except Exception as e:
         return [{"name": "Error", "description": f"Failed to extract characters: {str(e)}", "traits": []}]
 
+def extract_characters_from_canvas(canvas_state: Annotated[Dict, "Current canvas state with items"]) -> List[Dict]:
+    """Extract character data from the current canvas state."""
+    try:
+        items = canvas_state.get("items", [])
+        characters = []
+        
+        for item in items:
+            if item.get("type") == "character":
+                character_data = item.get("data", {})
+                characters.append({
+                    "name": character_data.get("name", "Unknown"),
+                    "description": character_data.get("description", "No description"),
+                    "traits": character_data.get("traits", []),
+                    "source_comic": character_data.get("source_comic", "")
+                })
+        
+        print(f"🎭 [TOOL CALL] extract_characters_from_canvas found {len(characters)} characters")
+        return characters
+        
+    except Exception as e:
+        print(f"❌ [TOOL CALL] extract_characters_from_canvas error: {str(e)}")
+        return []
+
 def generate_character_story(characters: Annotated[List[Dict], "List of character data"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
     """Generate a kids story using the extracted characters."""
     try:
-        llm = OpenAI(model="gpt-3.5-turbo")
+        llm = OpenAI(model="gpt-4o-mini")
         
         character_names = [char["name"] for char in characters]
         character_descriptions = [f"{char['name']}: {char['description']}" for char in characters]
@@ -83,11 +106,11 @@ def generate_character_story(characters: Annotated[List[Dict], "List of characte
         - Age-appropriate for children (5-10 years old)
         - Include all characters
         - Theme: {theme}
-        - Length: 300-500 words
+        - Length: EXACTLY 200 words or less
         - Clear beginning, middle, and end
         - Emphasize friendship and teamwork
         
-        Write the story:
+        Write the story (keep it short and sweet):
         """
         
         response = llm.complete(prompt)
@@ -157,7 +180,7 @@ def process_uploaded_comic() -> str:
 #         if not characters or len(characters) == 0:
 #             return "No characters provided. Please extract characters from a comic first."
         
-#         llm = OpenAI(model="gpt-3.5-turbo")
+#         llm = OpenAI(model="gpt-4o-mini")
         
 #         character_names = [char.get("name", "Unknown") for char in characters]
 #         character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
@@ -268,7 +291,7 @@ def process_uploaded_comic() -> str:
 #         if not characters or len(characters) == 0:
 #             return "No characters provided. Please extract characters from a comic first."
         
-#         llm = OpenAI(model="gpt-3.5-turbo")
+#         llm = OpenAI(model="gpt-4o")
         
 #         character_names = [char.get("name", "Unknown") for char in characters]
 #         character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
@@ -384,11 +407,12 @@ def process_uploaded_comic() -> str:
 # --- Frontend tool stubs (names/signatures only; execution happens in the UI) ---
 
 def createItem(
-    type: Annotated[str, "One of: project, entity, note, chart, character, story."],
+    type: Annotated[str, "One of: project, entity, note, chart, character, story, story-text."],
     name: Annotated[Optional[str], "Optional item name."] = None,
 ) -> str:
     """Create a new canvas item and return its id."""
-    return f"createItem({type}, {name})"
+    print(f"🎯 [TOOL CALL] createItem called: {type} with name {name}")
+    return f"Item created: {type} - {name or 'Unnamed'}"
 
 def deleteItem(
     itemId: Annotated[str, "Target item id."],
@@ -564,25 +588,29 @@ def setStoryTextTitle(
     title: Annotated[str, "Story title."], 
     itemId: Annotated[str, "Story text id."]
 ) -> str:
-    return f"setStoryTextTitle({title}, {itemId})"
+    print(f"🎯 [TOOL CALL] setStoryTextTitle called: {title} for item {itemId}")
+    return f"Story title set to: {title}"
 
 def setStoryTextContent(
     content: Annotated[str, "Story content."], 
     itemId: Annotated[str, "Story text id."]
 ) -> str:
-    return f"setStoryTextContent({content}, {itemId})"
+    print(f"🎯 [TOOL CALL] setStoryTextContent called: {len(content)} characters for item {itemId}")
+    return f"Story content set with {len(content)} characters"
 
 def setStoryTextCharacters(
     characters: Annotated[List[str], "List of character names."], 
     itemId: Annotated[str, "Story text id."]
 ) -> str:
-    return f"setStoryTextCharacters({characters}, {itemId})"
+    print(f"🎯 [TOOL CALL] setStoryTextCharacters called: {characters} for item {itemId}")
+    return f"Story characters set: {', '.join(characters)}"
 
 def setStoryTextTheme(
     theme: Annotated[str, "Story theme."], 
     itemId: Annotated[str, "Story text id."]
 ) -> str:
-    return f"setStoryTextTheme({theme}, {itemId})"
+    print(f"🎯 [TOOL CALL] setStoryTextTheme called: {theme} for item {itemId}")
+    return f"Story theme set to: {theme}"
 
 FIELD_SCHEMA = (
     "FIELD SCHEMA (authoritative):\n"
@@ -635,40 +663,26 @@ SYSTEM_PROMPT = (
     "- DO NOT STOP after createItem - you MUST populate each character immediately\n"
     "- After creating ALL character cards with complete data, generate a story using generate_character_story and create story-text card\n"
     "\n"
-    "STORY TEXT CREATION (PREFERRED FOR STORY GENERATION):\n"
-    "- When user asks to 'create a story', 'generate a story', or 'Generate a story using the characters currently on the canvas':\n"
-    "  1. Get character data from the current canvas state (look for items with type='character')\n"
-    "  2. Call generate_character_story(characters, theme) backend tool with the character data\n"
-    "  3. Create a story-text card using createItem('story-text', 'Generated Story')\n"
-    "  4. Use setStoryTextTitle('The Adventure of [Character Names]', itemId) to set title\n"
-    "  5. Use setStoryTextContent(story_content, itemId) to set the generated story content\n"
-    "  6. Use setStoryTextCharacters(character_names, itemId) to set character list\n"
-    "  7. Use setStoryTextTheme(theme, itemId) to set story theme\n"
-    "- DO NOT just return the story text - you MUST create and populate the story-text card\n"
-
+    "STORY TEXT CREATION:\n"
+    "- When user asks to create a story, IMMEDIATELY call these tools in order:\n"
+    "  1. extract_characters_from_canvas(canvas_state)\n"
+    "  2. generate_character_story(characters, theme)\n"
+    "  3. createItem('story-text', 'Generated Story')\n"
+    "  4. setStoryTextTitle, setStoryTextContent, setStoryTextCharacters, setStoryTextTheme\n"
+    "- DO NOT explain or chat - just call the tools immediately\n"
     "\n"
     "Always use the latest shared state as ground truth.\n"
 )
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-3.5-turbo"),
+    llm=OpenAI(model="gpt-4o-mini"),
     # Provide frontend tool stubs so the model knows their names/signatures.
     frontend_tools=[
         createItem,
-        # deleteItem,  # Not used in current workflow
-        # setItemName,  # Not used in current workflow
-        # setItemSubtitleOrDescription,  # Not used in current workflow
         setCharacterName,
         setCharacterDescription,
         addCharacterTrait,
-        # removeCharacterTrait,  # Not used in current workflow
-        # setCharacterImageUrl,  # Not used in current workflow (handled by frontend action)
         setCharacterSourceComic,
-        setStoryTitle,
-        addStorySlide,
-        # setStorySlideCaption,  # Not used in current workflow
-        # setStorySlideDuration,  # Not used in current workflow
-        # removeStorySlide,  # Not used in current workflow
         setStoryTextTitle,
         setStoryTextContent,
         setStoryTextCharacters,
@@ -677,6 +691,7 @@ agentic_chat_router = get_ag_ui_workflow_router(
     backend_tools=[
         process_uploaded_comic,
         generate_character_story,
+        extract_characters_from_canvas,
     ],
     system_prompt=SYSTEM_PROMPT,
     initial_state={
