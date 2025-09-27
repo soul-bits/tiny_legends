@@ -19,12 +19,7 @@ load_dotenv()
 def get_timestamped_dir(base_name="audio"):
     """Generate a timestamped directory name in format: YYYYMMDD_HHMMSS/audio"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{timestamp}/{base_name}"
-
-def get_shared_timestamped_dir():
-    """Generate a shared timestamped directory for a session (without subdirectory)."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{timestamp}"
+    return f"output/{timestamp}/{base_name}"
 
 class NarrationGenerator:
     """Generates audio narration using OpenAI's TTS API."""
@@ -259,7 +254,7 @@ if __name__ == "__main__":
     
     try:
         print("🎵 Testing narration generation...")
-        result = generate_narrations_from_json(example_json, "test_narrations")
+        result = generate_narrations_from_json(example_json, "output/test_narrations")
         
         if result["success"]:
             print(f"✅ Generated {result['narrations_generated']} narrations!")

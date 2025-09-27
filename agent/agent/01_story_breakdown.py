@@ -87,59 +87,6 @@ Story Summary: {story_summary}
 Create engaging, child-friendly content with vivid illustration prompts and smooth narration for each card."""
 
         return self._generate_breakdown(user_prompt, model)
-    
-    def breakdown_story_with_example(self, story_summary: str, model: str = "gpt-4o") -> StoryBreakdown:
-        """
-        Break down a story with an example to guide the AI.
-        
-        Args:
-            story_summary: The input story summary to break down
-            model: OpenAI model to use (default: gpt-4o)
-            
-        Returns:
-            StoryBreakdown object with 9 story cards
-        """
-        
-        user_prompt = f"""Please break down this story into 9 illustrated story cards:
-
-Story Summary: {story_summary}
-
-Create engaging, child-friendly content with vivid illustration prompts and smooth narration for each card."""
-
-        return self._generate_breakdown(user_prompt, model)
-    
-    def _generate_breakdown(self, user_prompt: str, model: str) -> StoryBreakdown:
-        """
-        Internal method to generate story breakdown using OpenAI API.
-        
-        Args:
-            user_prompt: The user prompt for the story
-            model: OpenAI model to use
-            
-        Returns:
-            StoryBreakdown object with 9 story cards
-        """
-        try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": self.SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.7,
-                max_tokens=4000
-            )
-            
-            # Parse the JSON response
-            import json
-            response_data = json.loads(response.choices[0].message.content)
-            
-            # Validate and create the StoryBreakdown object
-            return StoryBreakdown(**response_data)
-            
-        except Exception as e:
-            raise Exception(f"Error generating story breakdown: {str(e)}")
 
 def create_story_cards(story_summary: str) -> StoryBreakdown:
     """

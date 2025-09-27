@@ -20,12 +20,7 @@ load_dotenv()
 def get_timestamped_dir(base_name="illustrations"):
     """Generate a timestamped directory name in format: YYYYMMDD_HHMMSS/illustrations"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{timestamp}/{base_name}"
-
-def get_shared_timestamped_dir():
-    """Generate a shared timestamped directory for a session (without subdirectory)."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{timestamp}"
+    return f"output/{timestamp}/{base_name}"
 
 class IllustrationGenerator:
     """Generates illustrations using OpenAI's DALL-E 3."""
@@ -256,7 +251,7 @@ if __name__ == "__main__":
     
     try:
         print("🎨 Testing illustration generation...")
-        result = generate_illustrations_from_json(example_json, "test_illustrations")
+        result = generate_illustrations_from_json(example_json, "output/test_illustrations")
         
         if result["success"]:
             print(f"✅ Generated {result['illustrations_generated']} illustrations!")
