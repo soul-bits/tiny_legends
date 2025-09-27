@@ -505,22 +505,28 @@ def removeChartField1(itemId: Annotated[str, "Chart id."], index: Annotated[int,
 
 # Character actions
 def setCharacterName(name: Annotated[str, "Character name."], itemId: Annotated[str, "Character id."]) -> str:
-    return f"setCharacterName({name}, {itemId})"
+    print(f"🎯 [TOOL CALL] setCharacterName called: {name} for item {itemId}")
+    return f"Character name set to: {name}"
 
 def setCharacterDescription(description: Annotated[str, "Character description."], itemId: Annotated[str, "Character id."]) -> str:
-    return f"setCharacterDescription({description}, {itemId})"
+    print(f"🎯 [TOOL CALL] setCharacterDescription called: {description} for item {itemId}")
+    return f"Character description set to: {description}"
 
 def addCharacterTrait(trait: Annotated[str, "Trait to add."], itemId: Annotated[str, "Character id."]) -> str:
-    return f"addCharacterTrait({trait}, {itemId})"
+    print(f"🎯 [TOOL CALL] addCharacterTrait called: {trait} for item {itemId}")
+    return f"Character trait added: {trait}"
 
 def removeCharacterTrait(trait: Annotated[str, "Trait to remove."], itemId: Annotated[str, "Character id."]) -> str:
-    return f"removeCharacterTrait({trait}, {itemId})"
+    print(f"🎯 [TOOL CALL] removeCharacterTrait called: {trait} for item {itemId}")
+    return f"Character trait removed: {trait}"
 
 def setCharacterImageUrl(image_url: Annotated[str, "Image URL."], itemId: Annotated[str, "Character id."]) -> str:
-    return f"setCharacterImageUrl({image_url}, {itemId})"
+    print(f"🎯 [TOOL CALL] setCharacterImageUrl called: {image_url} for item {itemId}")
+    return f"Character image URL set to: {image_url}"
 
 def setCharacterSourceComic(source_comic: Annotated[str, "Source comic."], itemId: Annotated[str, "Character id."]) -> str:
-    return f"setCharacterSourceComic({source_comic}, {itemId})"
+    print(f"🎯 [TOOL CALL] setCharacterSourceComic called: {source_comic} for item {itemId}")
+    return f"Character source comic set to: {source_comic}"
 
 # Story actions
 def setStoryTitle(title: Annotated[str, "Story title."], itemId: Annotated[str, "Story id."]) -> str:
