@@ -31,7 +31,8 @@ export function ItemHeader(props: {
       <TextareaAutosize
         value={subtitle}
         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onSubtitleChange(e.target.value)}
-        placeholder="Optional subtitle or short description"
+        placeholder=""
+        // placeholder="Optional subtitle or short description"
         className="mt-2 w-full bg-transparent text-sm leading-6 resize-none outline-none placeholder:text-gray-400 transition-colors focus:text-accent focus:placeholder:text-accent/65"
         minRows={1}
       />

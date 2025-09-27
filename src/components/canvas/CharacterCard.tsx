@@ -107,7 +107,7 @@ export function CharacterCard({
         </div>
 
         {/* Source Comic */}
-        <div>
+        {/* <div>
           <label className="mb-1 block text-xs font-medium text-gray-500">Source Comic</label>
           {isEditing ? (
             <input
@@ -121,10 +121,10 @@ export function CharacterCard({
               {data.source_comic || "Unknown source"}
             </div>
           )}
-        </div>
+        </div> */}
 
         {/* Image URL (only in edit mode) */}
-        {isEditing && (
+        {/* {isEditing && (
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500">Image URL</label>
             <input
@@ -134,7 +134,7 @@ export function CharacterCard({
               placeholder="https://example.com/character.jpg"
             />
           </div>
-        )}
+        )} */}
 
         {/* Traits */}
         <div>

@@ -1224,6 +1224,10 @@ export default function CopilotKitPage() {
                   //   message: "Create a new chart.",
                   // },
                   {
+                    title: "Process Uploaded Comic",
+                    message: "Process the most recently uploaded comic file and extract characters from it.",
+                  },
+                  {
                     title: "Add a Character",
                     message: "Create a new character.",
                   },
@@ -1231,10 +1235,6 @@ export default function CopilotKitPage() {
                   //   title: "Add a Story",
                   //   message: "Create a new story with slides and audio.",
                   // },
-                  {
-                    title: "Process Uploaded Comic",
-                    message: "Process the most recently uploaded comic file and extract characters from it.",
-                  },
                 ]}
               />
             )}
