@@ -1542,13 +1542,17 @@ Which option would you prefer?`;
                     title: "Populate character cards",
                     message: "Populate the current character cards in the UI with details",
                   },
+                  // {
+                  //   title: "Add a Character",
+                  //   message: "Create a new character.",
+                  // },
+                  // {
+                  //   title: "Create a Story",
+                  //   message: "for STORY TEXT CREATION, Generate a story using generate_character_story tool the characters currently on the canvas with the theme of friendship and teamwork.",
+                  // },
                   {
-                    title: "Add a Character",
-                    message: "Create a new character.",
-                  },
-                  {
-                    title: "Create a Story",
-                    message: "Generate a story using the characters currently on the canvas with the theme of friendship and teamwork.",
+                    title: "Create Story Slides",
+                    message: "Generate Story slides",
                   },
                 ]}
               />

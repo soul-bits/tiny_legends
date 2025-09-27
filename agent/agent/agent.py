@@ -86,127 +86,45 @@ def extract_characters_from_canvas(canvas_state: Annotated[Dict, "Current canvas
     except Exception as e:
         print(f"❌ [TOOL CALL] extract_characters_from_canvas error: {str(e)}")
         return []
-
 def convert_story_to_slides(story_content: Annotated[str, "The 7-line story content to convert to slides"]) -> Dict:
     """Convert a 7-line story into story slide data structure."""
     try:
         print(f"🎬 [TOOL CALL] convert_story_to_slides called with {len(story_content)} characters")
+        print(f"🎬 [DEBUG] Story content: {story_content[:100]}...")
         
-        SYSTEM_PROMPT = """You are a children's story expert who specializes in breaking down stories into 9 illustrated story cards.
-
-    For each story card, you must provide:
-    1. Content: 1-2 sentences that tell part of the story
-    2. Illustration Prompt: Detailed description for creating a visual illustration based on the content
-    3. Spoken Narration: Narration script optimized for reading aloud to children
-
-    Guidelines:
-    - Define the characters and their descriptions in the story illustration prompt.
-    - Make the story engaging and age-appropriate for children
-    - Each card should advance the plot naturally
-    - Illustration prompts should be vivid and descriptive with at max 1 chat bubble
-    - Spoken narration should flow smoothly when read aloud
-    - Maintain consistency in characters and setting
-    - Ensure the story has a clear beginning, middle, and end across all 9 cards
-
-    The story should be broken into these 9 parts:
-    1. Introduction/Setting (Cards 1-2)
-    2. Rising Action/Problem (Cards 3-4) 
-    3. Climax/Adventure (Cards 5-6)
-    4. Resolution (Cards 7-8)
-    5. Conclusion (Card 9)
-
-    IMPORTANT: Return the response as a JSON object with this EXACT structure:
-    {
-    "title": "Story Title",
-    "summary": "Brief story summary",
-    "cards": [
-        {
-        "card_number": 1,
-        "content": "Story content for card 1",
-        "illustration_prompt": "Illustration description for card 1",
-        "spoken_narration": "Narration for card 1"
-        },
-        {
-        "card_number": 2,
-        "content": "Story content for card 2",
-        "illustration_prompt": "Illustration description for card 2",
-        "spoken_narration": "Narration for card 2"
-        },
-        ... (continue for all 9 cards)
-    ]
-    }
-
-    Do NOT wrap the response in any additional object or array."""
-
-        user_prompt = f"""Please break down this story into 9 illustrated story cards:
-
-    Story Summary: {story_content}
-
-    Create engaging, child-friendly content with vivid illustration prompts and smooth narration for each card."""
-
-        llm = OpenAI(model="gpt-4o-mini")
+        # Split the story content into lines and clean them
+        lines = [line.strip() for line in story_content.split('\n') if line.strip()]
         
-        # Create the full prompt with system and user messages
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ]
+        # Take only the first 7 lines
+        story_lines = lines[:7]
         
-        response = llm.chat(messages)
+        print(f"🎬 [DEBUG] Processing {len(story_lines)} story lines")
         
-        # Parse the JSON response
-        import json
-        import re
-        
-        # Clean the response by removing markdown code blocks
-        response_text = response.message.content.strip()
-        if response_text.startswith('```json'):
-            response_text = response_text[7:]  # Remove ```json
-        if response_text.endswith('```'):
-            response_text = response_text[:-3]  # Remove ```
-        response_text = response_text.strip()
-        
-        try:
-            story_data = json.loads(response_text)
+        # Convert each line into a story card
+        slides = []
+        for i, line in enumerate(story_lines):
+            card_number = i + 1
             
-            # Extract cards and convert to slides format
-            slides = []
-            for card in story_data.get("cards", []):
-                slides.append({
-                    "card_number": card.get("card_number", 1),
-                    "content": card.get("content", ""),
-                    "illustration_prompt": card.get("illustration_prompt", ""),
-                    "spoken_narration": card.get("spoken_narration", ""),
-                    "illustration_path": None,
-                    "audio_path": None
-                })
+            # Create illustration prompt based on the story line
+            illustration_prompt = f"Create a children's story illustration for: {line}. Make it colorful, engaging, and kid-friendly with animated style."
             
-            result = {
-                "title": story_data.get("title", "Story Slides"),
-                "slides": slides
-            }
-            
-        except json.JSONDecodeError as e:
-            print(f"❌ [TOOL CALL] JSON parsing error: {str(e)}")
-            # Fallback: create simple slides from original content
-            lines = [line.strip() for line in story_content.split('\n') if line.strip()]
-            slides = []
-            for i, line in enumerate(lines[:7]):  # Take first 7 lines
-                slides.append({
-                    "card_number": i + 1,
-                    "content": line,
-                    "illustration_prompt": f"Create an illustration for: {line}",
-                    "spoken_narration": line,
-                    "illustration_path": None,
-                    "audio_path": None
-                })
-            
-            result = {
-                "title": "Story Slides",
-                "slides": slides
-            }
+            # Use the line as both content and spoken narration
+            slides.append({
+                "card_number": card_number,
+                "content": line,
+                "illustration_prompt": illustration_prompt,
+                "spoken_narration": line,
+                "illustration_path": None,
+                "audio_path": None
+            })
+        
+        result = {
+            "title": "Story Slides",
+            "slides": slides
+        }
         
         print(f"✅ [TOOL CALL] convert_story_to_slides completed: created {len(slides)} slides")
+        print(f"✅ [DEBUG] Returning result with title: {result.get('title', 'No title')}")
         return result
         
     except Exception as e:
@@ -816,24 +734,22 @@ SYSTEM_PROMPT = (
     "- DO NOT STOP after createItem - you MUST populate each character immediately\n"
     "- After creating ALL character cards with complete data, generate a story using generate_character_story and create story-text card\n"
     "\n"
-    "STORY TEXT CREATION:\n"
-    "- When user asks to create a story, IMMEDIATELY call these tools in order:\n"
-    "  1. extract_characters_from_canvas(canvas_state)\n"
-    "  2. generate_character_story(characters, theme)\n"
-    "  3. createItem('story-text', 'Generated Story')\n"
-    "  4. setStoryTextTitle, setStoryTextContent, setStoryTextCharacters, setStoryTextTheme\n"
-    "- DO NOT explain or chat - just call the tools immediately\n"
-    "\n"
     "STORY SLIDE CREATION:\n"
     "- When user asks to create story slides from a 7-line story:\n"
-    "  1. Call convert_story_to_slides(story_content) to convert story to slide data\n"
-    "  2. Call createItem('story', 'Story Slides') to create story slide card\n"
-    "  3. Call setStorySlideTitle(title, itemId) to set the story title\n"
-    "  4. For each slide from convert_story_to_slides, call addStorySlide(itemId, caption, duration)\n"
-    "  5. Each line becomes a slide caption (duration 6 seconds for 7-year-olds)\n"
+    "  1. extract_characters_from_canvas(canvas_state)\n"
+    "  2. generate_character_story(characters, theme)\n"
+    "  3. Call convert_story_to_slides(story_content) to convert story to slide data\n"
+    "  4. Call createItem('story', 'Story Slides') to create story slide card\n"
+    "  5. Call setStorySlideTitle(title, itemId) to set the story title\n"
+    "  6. For each slide from convert_story_to_slides, call addStorySlide(itemId, caption, duration)\n"
+    "  7. Each line becomes a slide caption (duration 6 seconds for 7-year-olds)\n"
     "- This creates visual story slides from the generated text story\n"
     "\n"
-    "Always use the latest shared state as ground truth.\n"
+    "IMPORTANT RULES:\n"
+    "- Maximum 10 tool calls per request - stop after completing the task\n"
+    "- Do not repeat the same tool call multiple times\n"
+    "- Do not loop or retry failed calls\n"
+    "- Always use the latest shared state as ground truth\n"
 )
 
 agentic_chat_router = get_ag_ui_workflow_router(
