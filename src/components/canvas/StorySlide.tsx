@@ -28,47 +28,23 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
   const [isEditSectionExpanded, setIsEditSectionExpanded] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
   const [isTTSPlaying, setIsTTSPlaying] = useState(false);
-  const [selectedVoice, setSelectedVoice] = useState<string>("");
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<string>("alloy");
+  const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
+  const [ttsCache, setTtsCache] = useState<Map<string, string>>(new Map());
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const slides = data.slides || [];
   const currentSlide = slides[currentSlideIndex];
 
-  // Load available voices for TTS with Whisper-like preferences
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = speechSynthesis.getVoices();
-      setAvailableVoices(voices);
-      if (voices.length > 0 && !selectedVoice) {
-        // Prefer high-quality English voices that sound more like Whisper
-        const preferredVoices = voices.filter(voice => 
-          voice.lang.startsWith('en') && 
-          (voice.name.toLowerCase().includes('google') || 
-           voice.name.toLowerCase().includes('neural') ||
-           voice.name.toLowerCase().includes('enhanced') ||
-           voice.name.toLowerCase().includes('premium'))
-        );
-        
-        if (preferredVoices.length > 0) {
-          setSelectedVoice(preferredVoices[0].name);
-        } else {
-          // Fallback to any English voice
-          const englishVoice = voices.find(voice => 
-            voice.lang.startsWith('en') || voice.lang.includes('en')
-          );
-          setSelectedVoice(englishVoice?.name || voices[0].name);
-        }
-      }
-    };
-
-    loadVoices();
-    speechSynthesis.addEventListener('voiceschanged', loadVoices);
-    
-    return () => {
-      speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-    };
-  }, [selectedVoice]);
+  // Available OpenAI TTS voices
+  const availableVoices = [
+    { name: 'alloy', label: 'Alloy (Neutral)' },
+    { name: 'echo', label: 'Echo (Male)' },
+    { name: 'fable', label: 'Fable (British)' },
+    { name: 'onyx', label: 'Onyx (Deep)' },
+    { name: 'nova', label: 'Nova (Female)' },
+    { name: 'shimmer', label: 'Shimmer (Soft)' },
+  ];
 
   // Get audio duration when audio loads
   useEffect(() => {
@@ -118,50 +94,98 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
     }
   };
 
-  // TTS functions with Whisper-like quality
-  const speakText = (text: string) => {
+  // OpenAI TTS functions
+  const generateTTS = async (text: string): Promise<string> => {
+    const cacheKey = `${text}-${selectedVoice}`;
+    
+    // Check cache first
+    if (ttsCache.has(cacheKey)) {
+      return ttsCache.get(cacheKey)!;
+    }
+
+    try {
+      setIsGeneratingTTS(true);
+      const response = await fetch('/api/generate-tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: selectedVoice,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate TTS');
+      }
+
+      const { audioUrl } = await response.json();
+      
+      // Cache the result
+      setTtsCache(prev => new Map(prev).set(cacheKey, audioUrl));
+      
+      return audioUrl;
+    } catch (error) {
+      console.error('TTS generation error:', error);
+      throw error;
+    } finally {
+      setIsGeneratingTTS(false);
+    }
+  };
+
+  const speakText = async (text: string, isAutoPlayMode = false): Promise<void> => {
     if (!text.trim()) return;
     
-    // Stop any current speech
-    speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Set voice if available
-    if (selectedVoice) {
-      const voice = availableVoices.find(v => v.name === selectedVoice);
-      if (voice) {
-        utterance.voice = voice;
-      }
+    try {
+      const audioUrl = await generateTTS(text);
+      
+      // Create audio element and play
+      const audio = new Audio(audioUrl);
+      audio.volume = isMuted ? 0 : volume;
+      
+      return new Promise((resolve, reject) => {
+        audio.onplay = () => setIsTTSPlaying(true);
+        audio.onended = () => {
+          setIsTTSPlaying(false);
+          if (isAutoPlayMode) {
+            // Auto-advance to next slide after TTS completes
+            setTimeout(() => {
+              nextSlide();
+            }, 1000); // Small delay for smooth transition
+          }
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsTTSPlaying(false);
+          reject(new Error('Audio playback failed'));
+        };
+        
+        audio.play().catch(reject);
+      });
+    } catch (error) {
+      console.error('Error playing TTS:', error);
+      setIsTTSPlaying(false);
+      throw error;
     }
-    
-    // Enhanced speech parameters for Whisper-like quality
-    utterance.rate = 0.85; // Slightly slower for better clarity
-    utterance.pitch = 0.95; // Slightly lower pitch for more natural sound
-    utterance.volume = isMuted ? 0 : volume;
-    
-    // Add slight pause between sentences for better flow
-    const processedText = text.replace(/\./g, '. ').replace(/\?/g, '? ').replace(/!/g, '! ');
-    utterance.text = processedText;
-    
-    utterance.onstart = () => setIsTTSPlaying(true);
-    utterance.onend = () => setIsTTSPlaying(false);
-    utterance.onerror = () => setIsTTSPlaying(false);
-    
-    speechSynthesis.speak(utterance);
   };
 
   const stopTTS = () => {
-    speechSynthesis.cancel();
+    // Stop any playing audio
+    const audioElements = document.querySelectorAll('audio');
+    audioElements.forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
     setIsTTSPlaying(false);
   };
 
-  const toggleTTS = () => {
+  const toggleTTS = async () => {
     if (isTTSPlaying) {
       stopTTS();
     } else {
       const textToSpeak = currentSlide?.caption || data.title || "No text available";
-      speakText(textToSpeak);
+      await speakText(textToSpeak, false); // Manual click, not auto-play mode
     }
   };
 
@@ -245,10 +269,10 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
         
         playAudioWithAutoplay();
       } else if (currentSlide?.caption || data.title) {
-        // If no audio but has text, use TTS
+        // If no audio but has text, use TTS with auto-play mode
         const textToSpeak = currentSlide?.caption || data.title;
         if (textToSpeak) {
-          speakText(textToSpeak);
+          speakText(textToSpeak, true).catch(console.error); // Auto-play mode
         }
       } else {
         // If no audio or text, use duration-based timing
@@ -261,17 +285,6 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
     }
   }, [currentSlideIndex, isAutoPlay, currentSlide?.audioUrl, currentSlide?.caption, data.title]);
 
-  // Handle TTS auto-advance when TTS finishes
-  useEffect(() => {
-    if (isAutoPlay && !isTTSPlaying && !currentSlide?.audioUrl && (currentSlide?.caption || data.title)) {
-      // TTS has finished, advance to next slide
-      const timer = setTimeout(() => {
-        nextSlide();
-      }, 1000); // Wait a bit after TTS finishes
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isTTSPlaying, isAutoPlay, currentSlide?.audioUrl, currentSlide?.caption, data.title]);
 
   return (
     <div className="mt-4">
@@ -323,12 +336,19 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                 {(currentSlide?.caption || data.title) && (
                   <button
                     onClick={toggleTTS}
-                    className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors relative group"
-                    title={isTTSPlaying ? "Stop Whisper-style narration" : "Read text aloud with enhanced voice"}
+                    disabled={isGeneratingTTS}
+                    className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isTTSPlaying ? "Stop OpenAI TTS narration" : isGeneratingTTS ? "Generating audio..." : "Read text aloud with OpenAI TTS"}
                   >
-                    {isTTSPlaying ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {isGeneratingTTS ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : isTTSPlaying ? (
+                      <MicOff className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
                     {/* Quality indicator */}
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </button>
                 )}
                 
@@ -416,30 +436,17 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
               </label>
               
               {/* Voice Selection */}
-              {availableVoices.length > 0 && (
-                <select
-                  value={selectedVoice}
-                  onChange={(e) => setSelectedVoice(e.target.value)}
-                  className="text-xs rounded border px-2 py-1 bg-white"
-                >
-                  {availableVoices
-                    .filter(voice => voice.lang.startsWith('en'))
-                    .sort((a, b) => {
-                      // Prioritize high-quality voices
-                      const aQuality = a.name.toLowerCase().includes('google') || 
-                                     a.name.toLowerCase().includes('neural') ? 1 : 0;
-                      const bQuality = b.name.toLowerCase().includes('google') || 
-                                     b.name.toLowerCase().includes('neural') ? 1 : 0;
-                      return bQuality - aQuality;
-                    })
-                    .map((voice) => (
-                      <option key={voice.name} value={voice.name}>
-                        {voice.name.includes('Google') ? '🎤 ' : '🔊 '}
-                        {voice.name} ({voice.lang})
-                      </option>
-                    ))}
-                </select>
-              )}
+              <select
+                value={selectedVoice}
+                onChange={(e) => setSelectedVoice(e.target.value)}
+                className="text-xs rounded border px-2 py-1 bg-white"
+              >
+                {availableVoices.map((voice) => (
+                  <option key={voice.name} value={voice.name}>
+                    🎤 {voice.label}
+                  </option>
+                ))}
+              </select>
               
               {isEditing && (
                 <button
