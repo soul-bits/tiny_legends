@@ -305,9 +305,9 @@ export default function CopilotKitPage() {
     switch (type) {
       case "character":
         return {
-          name: "",
-          description: "",
-          traits: [],
+          name: "New Character",
+          description: "A character waiting to be described...",
+          traits: ["adventurous"],
           image_url: "",
           source_comic: "",
         } as CharacterData;

@@ -592,14 +592,29 @@ SYSTEM_PROMPT = (
     "- For project/entity/chart: treat 'description', 'overview', 'summary', 'caption', 'blurb' as the card subtitle; use setItemSubtitleOrDescription.\n"
     "- For notes: 'content', 'description', 'text', or 'note' refers to note content; use setNoteField1 / appendNoteField1 / clearNoteField1.\n"
     "- For characters: when processing comics or creating characters, use the character-specific tools to set name, description, traits, etc.\n"
+    "- When creating character cards manually, ALWAYS populate them with meaningful data immediately - never leave them empty.\n"
+    "- For manual character creation, ask the user for character details or generate them based on context.\n"
+    "- When a user creates a character card manually, IMMEDIATELY populate it with:\n"
+    "  1. A unique, creative character name\n"
+    "  2. A detailed character description (2-3 sentences)\n"
+    "  3. At least 3-5 personality traits\n"
+    "  4. Generate an image using generate_character_image\n"
+    "  5. Set the image URL using setCharacterImageUrl\n"
     "- For stories: use setStoryTitle for the story title, and addStorySlide to add slides with captions and durations.\n\n"
     "COMIC PROCESSING:\n"
     "- When the user asks to process an uploaded comic, ALWAYS use the process_uploaded_comic backend tool first.\n"
     "- This tool will automatically find the most recently uploaded comic file and extract characters.\n"
     "- The tool will return the extracted characters in a formatted response.\n"
     "- After the tool returns the characters, you MUST create character cards for each extracted character.\n"
-    "- For each character, call createItem('character', character_name) then use setCharacterName, setCharacterDescription, addCharacterTrait, etc.\n"
-    "- After creating character cards, ALWAYS generate a story using generate_and_create_story and create a story card.\n"
+    "- For each character, follow this EXACT sequence:\n"
+    "  1. Call createItem('character', character_name) to create the card\n"
+    "  2. IMMEDIATELY call setCharacterName(character_name, itemId) to set the name\n"
+    "  3. IMMEDIATELY call setCharacterDescription(character_description, itemId) to set the description\n"
+    "  4. For each trait in character_traits, call addCharacterTrait(trait, itemId)\n"
+    "  5. Call setCharacterSourceComic(source_comic_name, itemId) to set the source\n"
+    "  6. Call generate_character_image backend tool to create an image\n"
+    "  7. Call setCharacterImageUrl(image_url, itemId) to set the generated image\n"
+    "- After creating ALL character cards with complete data, ALWAYS generate a story using generate_and_create_story and create a story card.\n"
     "- Do NOT ask for file paths - the process_uploaded_comic tool handles this automatically.\n\n"
     "STORY GENERATION:\n"
     "- When the user asks to generate a story with extracted characters, ALWAYS use the generate_and_create_story backend tool.\n"
@@ -664,6 +679,7 @@ agentic_chat_router = get_ag_ui_workflow_router(
         process_uploaded_comic,
         generate_story_with_slides,
         generate_and_create_story,
+        generate_character_image,
     ],
     system_prompt=SYSTEM_PROMPT,
     initial_state={

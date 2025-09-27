@@ -195,6 +195,7 @@ export function CardRenderer(props: {
         data={d} 
         onUpdateData={updateCharacterData}
         isEditing={true}
+        itemId={props.item.id}
       />
     );
   }

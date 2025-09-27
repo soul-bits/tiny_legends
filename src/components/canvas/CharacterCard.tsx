@@ -11,13 +11,15 @@ interface CharacterCardProps {
   onUpdateData: (updater: (prev: CharacterData) => CharacterData) => void;
   isEditing?: boolean;
   onToggleEdit?: () => void;
+  itemId?: string;
 }
 
 export function CharacterCard({ 
   data, 
   onUpdateData, 
   isEditing = false, 
-  onToggleEdit 
+  onToggleEdit,
+  itemId
 }: CharacterCardProps) {
   const [imageError, setImageError] = useState(false);
   
@@ -85,6 +87,9 @@ export function CharacterCard({
             />
           ) : (
             <div className="text-lg font-semibold text-foreground">{data.name || "Unnamed Character"}</div>
+          )}
+          {data.name === "New Character" && (
+            <div className="text-xs text-amber-600 mt-1">💡 Ask the AI to help populate this character's details</div>
           )}
         </div>
 
