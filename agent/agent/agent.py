@@ -87,6 +87,49 @@ def extract_characters_from_canvas(canvas_state: Annotated[Dict, "Current canvas
         print(f"❌ [TOOL CALL] extract_characters_from_canvas error: {str(e)}")
         return []
 
+def convert_story_to_slides(story_content: Annotated[str, "The 7-line story content to convert to slides"]) -> Dict:
+    """Convert a 7-line story into story slide data structure."""
+    try:
+        print(f"🎬 [TOOL CALL] convert_story_to_slides called with {len(story_content)} characters")
+        
+        # Split the story into lines and clean them
+        lines = [line.strip() for line in story_content.split('\n') if line.strip()]
+        
+        # Ensure we have exactly 7 lines
+        if len(lines) < 7:
+            # Pad with generic lines if needed
+            while len(lines) < 7:
+                lines.append("The adventure continues...")
+        elif len(lines) > 7:
+            # Take only the first 7 lines
+            lines = lines[:7]
+        
+        # Create slides data structure
+        slides = []
+        for i, line in enumerate(lines):
+            slides.append({
+                "id": f"slide-{i+1}",
+                "imageUrl": "",
+                "audioUrl": "",
+                "caption": line,
+                "duration": 6  # 6 seconds per slide for 7-year-olds
+            })
+        
+        result = {
+            "title": "Story Slides",
+            "slides": slides
+        }
+        
+        print(f"✅ [TOOL CALL] convert_story_to_slides completed: created {len(slides)} slides")
+        return result
+        
+    except Exception as e:
+        print(f"❌ [TOOL CALL] convert_story_to_slides error: {str(e)}")
+        return {
+            "title": "Story Slides",
+            "slides": []
+        }
+
 def generate_character_story(characters: Annotated[List[Dict], "List of character data"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
     """Generate a kids story using the extracted characters."""
     try:
@@ -612,6 +655,30 @@ def setStoryTextTheme(
     print(f"🎯 [TOOL CALL] setStoryTextTheme called: {theme} for item {itemId}")
     return f"Story theme set to: {theme}"
 
+# Story slide actions
+def setStorySlideTitle(
+    title: Annotated[str, "Story slide title."], 
+    itemId: Annotated[str, "Story slide id."]
+) -> str:
+    print(f"🎯 [TOOL CALL] setStorySlideTitle called: {title} for item {itemId}")
+    return f"Story slide title set to: {title}"
+
+def addStorySlide(
+    itemId: Annotated[str, "Story slide id."],
+    caption: Annotated[str, "Slide caption/text content."],
+    duration: Annotated[int, "Duration in seconds."] = 5
+) -> str:
+    print(f"🎯 [TOOL CALL] addStorySlide called: '{caption[:50]}...' for item {itemId}")
+    return f"Story slide added with caption: {caption[:50]}..."
+
+def setStorySlideCaption(
+    itemId: Annotated[str, "Story slide id."],
+    slideId: Annotated[str, "Slide id."],
+    caption: Annotated[str, "Slide caption/text content."]
+) -> str:
+    print(f"🎯 [TOOL CALL] setStorySlideCaption called: '{caption[:50]}...' for slide {slideId}")
+    return f"Story slide caption set: {caption[:50]}..."
+
 FIELD_SCHEMA = (
     "FIELD SCHEMA (authoritative):\n"
     "- project.data:\n"
@@ -671,6 +738,15 @@ SYSTEM_PROMPT = (
     "  4. setStoryTextTitle, setStoryTextContent, setStoryTextCharacters, setStoryTextTheme\n"
     "- DO NOT explain or chat - just call the tools immediately\n"
     "\n"
+    "STORY SLIDE CREATION:\n"
+    "- When user asks to create story slides from a 7-line story:\n"
+    "  1. Call convert_story_to_slides(story_content) to convert story to slide data\n"
+    "  2. Call createItem('story', 'Story Slides') to create story slide card\n"
+    "  3. Call setStorySlideTitle(title, itemId) to set the story title\n"
+    "  4. For each slide from convert_story_to_slides, call addStorySlide(itemId, caption, duration)\n"
+    "  5. Each line becomes a slide caption (duration 6 seconds for 7-year-olds)\n"
+    "- This creates visual story slides from the generated text story\n"
+    "\n"
     "Always use the latest shared state as ground truth.\n"
 )
 
@@ -687,11 +763,15 @@ agentic_chat_router = get_ag_ui_workflow_router(
         setStoryTextContent,
         setStoryTextCharacters,
         setStoryTextTheme,
+        setStorySlideTitle,
+        addStorySlide,
+        setStorySlideCaption,
     ],
     backend_tools=[
         process_uploaded_comic,
         generate_character_story,
         extract_characters_from_canvas,
+        convert_story_to_slides,
     ],
     system_prompt=SYSTEM_PROMPT,
     initial_state={
