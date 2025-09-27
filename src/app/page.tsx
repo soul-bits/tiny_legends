@@ -144,6 +144,7 @@ export default function CopilotKitPage() {
         "LOOP CONTROL: When asked to 'add a couple' items, add at most 2 and stop. Avoid repeated calls to the same mutating tool in one turn.",
         "RANDOMIZATION: If the user specifically asks for random/mock values, you MAY generate and set them right away using the tools (do not block for more details).",
         "VERIFICATION: After tools run, re-read the latest state and confirm what actually changed.",
+        "CHARACTER CARDS: If you see character cards with 'New Character' names, suggest to the user: 'I can help populate these character cards with details. Would you like me to process an uploaded comic file or create character details manually?'",
       ].join("\n");
       return [
         "ALWAYS ANSWER FROM SHARED STATE (GROUND TRUTH).",
@@ -203,52 +204,52 @@ export default function CopilotKitPage() {
   });
 
   // Tool-based HITL: choose card type
-  useCopilotAction({
-    name: "choose_card_type",
-    description: "Ask the user to choose a card type to create.",
-    available: "remote",
-    parameters: [
-      { name: "content", type: "string", required: false, description: "Prompt to display." },
-    ],
-    renderAndWaitForResponse: ({ respond, args }) => {
-      const options: { id: CardType; label: string }[] = [
-        { id: "project", label: "Project" },
-        { id: "entity", label: "Entity" },
-        { id: "note", label: "Note" },
-        { id: "chart", label: "Chart" },
-        { id: "character", label: "Character" },
-      ];
-      let selected: CardType | "" = "";
-      return (
-        <div className="rounded-md border bg-white p-4 text-sm shadow">
-          <p className="mb-2 font-medium">Select a card type</p>
-          <p className="mb-3 text-xs text-gray-600">{getContentArg(args) ?? "Which type of card should I create?"}</p>
-          <select
-            className="w-full rounded border px-2 py-1"
-            defaultValue=""
-            onChange={(e) => {
-              selected = e.target.value as CardType;
-            }}
-          >
-            <option value="" disabled>Select an item type…</option>
-            {options.map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
-            ))}
-          </select>
-          <div className="mt-3 flex justify-end gap-2">
-            <button className="rounded border px-3 py-1" onClick={() => respond?.("")}>Cancel</button>
-            <button
-              className="rounded border bg-blue-600 px-3 py-1 text-white"
-              onClick={() => selected && respond?.(selected)}
-              disabled={!selected}
-            >
-              Use type
-            </button>
-          </div>
-        </div>
-      );
-    },
-  });
+  // useCopilotAction({
+  //   name: "choose_card_type",
+  //   description: "Ask the user to choose a card type to create.",
+  //   available: "remote",
+  //   parameters: [
+  //     { name: "content", type: "string", required: false, description: "Prompt to display." },
+  //   ],
+  //   renderAndWaitForResponse: ({ respond, args }) => {
+  //     const options: { id: CardType; label: string }[] = [
+  //       { id: "project", label: "Project" },
+  //       { id: "entity", label: "Entity" },
+  //       { id: "note", label: "Note" },
+  //       { id: "chart", label: "Chart" },
+  //       { id: "character", label: "Character" },
+  //     ];
+  //     let selected: CardType | "" = "";
+  //     return (
+  //       <div className="rounded-md border bg-white p-4 text-sm shadow">
+  //         <p className="mb-2 font-medium">Select a card type</p>
+  //         <p className="mb-3 text-xs text-gray-600">{getContentArg(args) ?? "Which type of card should I create?"}</p>
+  //         <select
+  //           className="w-full rounded border px-2 py-1"
+  //           defaultValue=""
+  //           onChange={(e) => {
+  //             selected = e.target.value as CardType;
+  //           }}
+  //         >
+  //           <option value="" disabled>Select an item type…</option>
+  //           {options.map((opt) => (
+  //             <option key={opt.id} value={opt.id}>{opt.label}</option>
+  //           ))}
+  //         </select>
+  //         <div className="mt-3 flex justify-end gap-2">
+  //           <button className="rounded border px-3 py-1" onClick={() => respond?.("")}>Cancel</button>
+  //           <button
+  //             className="rounded border bg-blue-600 px-3 py-1 text-white"
+  //             onClick={() => selected && respond?.(selected)}
+  //             disabled={!selected}
+  //           >
+  //             Use type
+  //           </button>
+  //         </div>
+  //       </div>
+  //     );
+  //   },
+  // });
 
   const updateItem = useCallback(
     (itemId: string, updates: Partial<Item>) => {
@@ -1192,6 +1193,34 @@ export default function CopilotKitPage() {
     },
   });
 
+  // Character population suggestion
+  useCopilotAction({
+    name: "populateCharacterCards",
+    description: "Help populate character cards with details. This will suggest ways to add character information.",
+    available: "remote",
+    parameters: [],
+    handler: async () => {
+      const items = viewState.items ?? initialState.items;
+      const characterCards = items.filter(item => item.type === "character");
+      const emptyCharacters = characterCards.filter(item => 
+        item.name === "New Character" || !item.name || item.name.trim() === ""
+      );
+      
+      if (emptyCharacters.length === 0) {
+        return "All character cards already have names and details populated!";
+      }
+      
+      return `I found ${emptyCharacters.length} character card(s) that need to be populated with details. 
+
+Here are your options:
+1. **Upload a comic file** - I can extract characters from a comic and populate the cards automatically
+2. **Manual population** - I can help you add character names, descriptions, and traits manually
+3. **Generate character details** - I can create interesting character details based on your preferences
+
+Which option would you prefer?`;
+    },
+  });
+
   const titleClasses = cn(
     /* base styles */
     "w-full outline-none rounded-md px-2 py-1",
@@ -1354,6 +1383,10 @@ export default function CopilotKitPage() {
                   {
                     title: "Process Uploaded Comic",
                     message: "Process the most recently uploaded comic file and extract characters from it.",
+                  },
+                  {
+                    title: "Populate character cards",
+                    message: "Populate the current character cards in the UI with details",
                   },
                   {
                     title: "Add a Character",

@@ -622,20 +622,20 @@ agentic_chat_router = get_ag_ui_workflow_router(
     # Provide frontend tool stubs so the model knows their names/signatures.
     frontend_tools=[
         createItem,
-        deleteItem,
-        setItemName,
-        setItemSubtitleOrDescription,
+        # deleteItem,  # Not used in current workflow
+        # setItemName,  # Not used in current workflow
+        # setItemSubtitleOrDescription,  # Not used in current workflow
         setCharacterName,
         setCharacterDescription,
         addCharacterTrait,
-        removeCharacterTrait,
-        setCharacterImageUrl,
+        # removeCharacterTrait,  # Not used in current workflow
+        # setCharacterImageUrl,  # Not used in current workflow (handled by frontend action)
         setCharacterSourceComic,
         setStoryTitle,
         addStorySlide,
-        setStorySlideCaption,
-        setStorySlideDuration,
-        removeStorySlide,
+        # setStorySlideCaption,  # Not used in current workflow
+        # setStorySlideDuration,  # Not used in current workflow
+        # removeStorySlide,  # Not used in current workflow
     ],
     backend_tools=[
         process_uploaded_comic,
