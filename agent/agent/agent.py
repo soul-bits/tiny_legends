@@ -151,232 +151,232 @@ def process_uploaded_comic() -> str:
     except Exception as e:
         return f"Error processing uploaded comic: {str(e)}"
 
-def generate_story_with_slides(characters: Annotated[List[Dict], "List of character data to use in the story"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
-    """Generate a kids story with extracted characters and create story slides (at least 5 slides, under 200 words total)."""
-    try:
-        if not characters or len(characters) == 0:
-            return "No characters provided. Please extract characters from a comic first."
+# def generate_story_with_slides(characters: Annotated[List[Dict], "List of character data to use in the story"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
+#     """Generate a kids story with extracted characters and create story slides (at least 5 slides, under 200 words total)."""
+#     try:
+#         if not characters or len(characters) == 0:
+#             return "No characters provided. Please extract characters from a comic first."
         
-        llm = OpenAI(model="gpt-3.5-turbo")
+#         llm = OpenAI(model="gpt-3.5-turbo")
         
-        character_names = [char.get("name", "Unknown") for char in characters]
-        character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
+#         character_names = [char.get("name", "Unknown") for char in characters]
+#         character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
         
-        prompt = f"""
-        Create a fun, engaging kids story featuring these characters:
-        {', '.join(character_names)}
+#         prompt = f"""
+#         Create a fun, engaging kids story featuring these characters:
+#         {', '.join(character_names)}
         
-        Character details:
-        {'; '.join(character_descriptions)}
+#         Character details:
+#         {'; '.join(character_descriptions)}
         
-        Story requirements:
-        - Age-appropriate for children (5-10 years old)
-        - Include all characters
-        - Theme: {theme}
-        - Total length: Under 50 words
-        - Create exactly 5 slides
-        - Each slide should have a clear scene/action
-        - Clear beginning, middle, and end
-        - Emphasize friendship and teamwork
+#         Story requirements:
+#         - Age-appropriate for children (5-10 years old)
+#         - Include all characters
+#         - Theme: {theme}
+#         - Total length: Under 50 words
+#         - Create exactly 5 slides
+#         - Each slide should have a clear scene/action
+#         - Clear beginning, middle, and end
+#         - Emphasize friendship and teamwork
         
-        Format the response as JSON with this structure:
-        {{
-            "title": "Story Title",
-            "slides": [
-                {{
-                    "id": "slide-1",
-                    "caption": "Slide 1 caption describing the scene",
-                    "duration": 8
-                }},
-                {{
-                    "id": "slide-2", 
-                    "caption": "Slide 2 caption describing the scene",
-                    "duration": 10
-                }},
-                {{
-                    "id": "slide-3",
-                    "caption": "Slide 3 caption describing the scene", 
-                    "duration": 12
-                }},
-                {{
-                    "id": "slide-4",
-                    "caption": "Slide 4 caption describing the scene",
-                    "duration": 9
-                }},
-                {{
-                    "id": "slide-5",
-                    "caption": "Slide 5 caption describing the scene",
-                    "duration": 7
-                }}
-            ]
-        }}
+#         Format the response as JSON with this structure:
+#         {{
+#             "title": "Story Title",
+#             "slides": [
+#                 {{
+#                     "id": "slide-1",
+#                     "caption": "Slide 1 caption describing the scene",
+#                     "duration": 8
+#                 }},
+#                 {{
+#                     "id": "slide-2", 
+#                     "caption": "Slide 2 caption describing the scene",
+#                     "duration": 10
+#                 }},
+#                 {{
+#                     "id": "slide-3",
+#                     "caption": "Slide 3 caption describing the scene", 
+#                     "duration": 12
+#                 }},
+#                 {{
+#                     "id": "slide-4",
+#                     "caption": "Slide 4 caption describing the scene",
+#                     "duration": 9
+#                 }},
+#                 {{
+#                     "id": "slide-5",
+#                     "caption": "Slide 5 caption describing the scene",
+#                     "duration": 7
+#                 }}
+#             ]
+#         }}
         
-        Generate the story:
-        """
+#         Generate the story:
+#         """
         
-        response = llm.complete(prompt)
+#         response = llm.complete(prompt)
         
-        # Parse the JSON response
-        import json
-        import re
+#         # Parse the JSON response
+#         import json
+#         import re
         
-        # Clean the response by removing markdown code blocks
-        response_text = response.text.strip()
-        if response_text.startswith('```json'):
-            response_text = response_text[7:]  # Remove ```json
-        if response_text.endswith('```'):
-            response_text = response_text[:-3]  # Remove ```
-        response_text = response_text.strip()
+#         # Clean the response by removing markdown code blocks
+#         response_text = response.text.strip()
+#         if response_text.startswith('```json'):
+#             response_text = response_text[7:]  # Remove ```json
+#         if response_text.endswith('```'):
+#             response_text = response_text[:-3]  # Remove ```
+#         response_text = response_text.strip()
         
-        try:
-            story_data = json.loads(response_text)
+#         try:
+#             story_data = json.loads(response_text)
             
-            # Validate that we have at least 5 slides
-            if len(story_data.get("slides", [])) < 5:
-                # If we don't have enough slides, create additional ones
-                slides = story_data.get("slides", [])
-                while len(slides) < 5:
-                    slides.append({
-                        "id": f"slide-{len(slides) + 1}",
-                        "caption": f"The adventure continues with {', '.join(character_names)}...",
-                        "duration": 8
-                    })
-                story_data["slides"] = slides
+#             # Validate that we have at least 5 slides
+#             if len(story_data.get("slides", [])) < 5:
+#                 # If we don't have enough slides, create additional ones
+#                 slides = story_data.get("slides", [])
+#                 while len(slides) < 5:
+#                     slides.append({
+#                         "id": f"slide-{len(slides) + 1}",
+#                         "caption": f"The adventure continues with {', '.join(character_names)}...",
+#                         "duration": 8
+#                     })
+#                 story_data["slides"] = slides
             
-            return f"""Successfully generated a story with {len(story_data.get('slides', []))} slides:
+#             return f"""Successfully generated a story with {len(story_data.get('slides', []))} slides:
 
-**{story_data.get('title', 'Untitled Story')}**
+# **{story_data.get('title', 'Untitled Story')}**
 
-I will now create a story card with these slides. The story features {', '.join(character_names)} and is perfect for kids aged 5-10.
+# I will now create a story card with these slides. The story features {', '.join(character_names)} and is perfect for kids aged 5-10.
 
-STORY_DATA: {story_data}"""
+# STORY_DATA: {story_data}"""
             
-        except json.JSONDecodeError as e:
-            # Fallback: create a simple story structure
-            return f"""Generated a story featuring {', '.join(character_names)}:
+#         except json.JSONDecodeError as e:
+#             # Fallback: create a simple story structure
+#             return f"""Generated a story featuring {', '.join(character_names)}:
 
-**The Adventure of {', '.join(character_names)}**
+# **The Adventure of {', '.join(character_names)}**
 
-I will now create a story card with 5 slides. The story is perfect for kids and emphasizes friendship and teamwork."""
+# I will now create a story card with 5 slides. The story is perfect for kids and emphasizes friendship and teamwork."""
             
-    except Exception as e:
-            return f"Error generating story: {str(e)}"
+#     except Exception as e:
+#             return f"Error generating story: {str(e)}"
 
-def generate_and_create_story(characters: Annotated[List[Dict], "List of character data to use in the story"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
-    """Generate a kids story with extracted characters and automatically create a story card in the UI (under 50 words, 5 slides)."""
-    try:
-        if not characters or len(characters) == 0:
-            return "No characters provided. Please extract characters from a comic first."
+# def generate_and_create_story(characters: Annotated[List[Dict], "List of character data to use in the story"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
+#     """Generate a kids story with extracted characters and automatically create a story card in the UI (under 50 words, 5 slides)."""
+#     try:
+#         if not characters or len(characters) == 0:
+#             return "No characters provided. Please extract characters from a comic first."
         
-        llm = OpenAI(model="gpt-3.5-turbo")
+#         llm = OpenAI(model="gpt-3.5-turbo")
         
-        character_names = [char.get("name", "Unknown") for char in characters]
-        character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
+#         character_names = [char.get("name", "Unknown") for char in characters]
+#         character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
         
-        prompt = f"""
-        Create a fun, engaging kids story featuring these characters:
-        {', '.join(character_names)}
+#         prompt = f"""
+#         Create a fun, engaging kids story featuring these characters:
+#         {', '.join(character_names)}
         
-        Character details:
-        {'; '.join(character_descriptions)}
+#         Character details:
+#         {'; '.join(character_descriptions)}
         
-        Story requirements:
-        - Age-appropriate for children (5-10 years old)
-        - Include all characters
-        - Theme: {theme}
-        - Total length: Under 50 words
-        - Create exactly 5 slides
-        - Each slide should have a clear scene/action
-        - Clear beginning, middle, and end
-        - Emphasize friendship and teamwork
+#         Story requirements:
+#         - Age-appropriate for children (5-10 years old)
+#         - Include all characters
+#         - Theme: {theme}
+#         - Total length: Under 50 words
+#         - Create exactly 5 slides
+#         - Each slide should have a clear scene/action
+#         - Clear beginning, middle, and end
+#         - Emphasize friendship and teamwork
         
-        Format the response as JSON with this structure:
-        {{
-            "title": "Story Title",
-            "slides": [
-                {{
-                    "id": "slide-1",
-                    "caption": "Slide 1 caption describing the scene",
-                    "duration": 8
-                }},
-                {{
-                    "id": "slide-2", 
-                    "caption": "Slide 2 caption describing the scene",
-                    "duration": 10
-                }},
-                {{
-                    "id": "slide-3",
-                    "caption": "Slide 3 caption describing the scene", 
-                    "duration": 12
-                }},
-                {{
-                    "id": "slide-4",
-                    "caption": "Slide 4 caption describing the scene",
-                    "duration": 9
-                }},
-                {{
-                    "id": "slide-5",
-                    "caption": "Slide 5 caption describing the scene",
-                    "duration": 7
-                }}
-            ]
-        }}
+#         Format the response as JSON with this structure:
+#         {{
+#             "title": "Story Title",
+#             "slides": [
+#                 {{
+#                     "id": "slide-1",
+#                     "caption": "Slide 1 caption describing the scene",
+#                     "duration": 8
+#                 }},
+#                 {{
+#                     "id": "slide-2", 
+#                     "caption": "Slide 2 caption describing the scene",
+#                     "duration": 10
+#                 }},
+#                 {{
+#                     "id": "slide-3",
+#                     "caption": "Slide 3 caption describing the scene", 
+#                     "duration": 12
+#                 }},
+#                 {{
+#                     "id": "slide-4",
+#                     "caption": "Slide 4 caption describing the scene",
+#                     "duration": 9
+#                 }},
+#                 {{
+#                     "id": "slide-5",
+#                     "caption": "Slide 5 caption describing the scene",
+#                     "duration": 7
+#                 }}
+#             ]
+#         }}
         
-        Generate the story:
-        """
+#         Generate the story:
+#         """
         
-        response = llm.complete(prompt)
+#         response = llm.complete(prompt)
         
-        # Parse the JSON response
-        import json
-        import re
+#         # Parse the JSON response
+#         import json
+#         import re
         
-        # Clean the response by removing markdown code blocks
-        response_text = response.text.strip()
-        if response_text.startswith('```json'):
-            response_text = response_text[7:]  # Remove ```json
-        if response_text.endswith('```'):
-            response_text = response_text[:-3]  # Remove ```
-        response_text = response_text.strip()
+#         # Clean the response by removing markdown code blocks
+#         response_text = response.text.strip()
+#         if response_text.startswith('```json'):
+#             response_text = response_text[7:]  # Remove ```json
+#         if response_text.endswith('```'):
+#             response_text = response_text[:-3]  # Remove ```
+#         response_text = response_text.strip()
         
-        try:
-            story_data = json.loads(response_text)
+#         try:
+#             story_data = json.loads(response_text)
             
-            # Validate that we have at least 5 slides
-            if len(story_data.get("slides", [])) < 5:
-                # If we don't have enough slides, create additional ones
-                slides = story_data.get("slides", [])
-                while len(slides) < 5:
-                    slides.append({
-                        "id": f"slide-{len(slides) + 1}",
-                        "caption": f"The adventure continues with {', '.join(character_names)}...",
-                        "duration": 8
-                    })
-                story_data["slides"] = slides
+#             # Validate that we have at least 5 slides
+#             if len(story_data.get("slides", [])) < 5:
+#                 # If we don't have enough slides, create additional ones
+#                 slides = story_data.get("slides", [])
+#                 while len(slides) < 5:
+#                     slides.append({
+#                         "id": f"slide-{len(slides) + 1}",
+#                         "caption": f"The adventure continues with {', '.join(character_names)}...",
+#                         "duration": 8
+#                     })
+#                 story_data["slides"] = slides
             
-            # Return instructions for creating the story card
-            story_title = story_data.get('title', 'Untitled Story')
-            slides = story_data.get('slides', [])
+#             # Return instructions for creating the story card
+#             story_title = story_data.get('title', 'Untitled Story')
+#             slides = story_data.get('slides', [])
             
-            return f"""I will now create a story card with the generated story:
+#             return f"""I will now create a story card with the generated story:
 
-**{story_title}**
+# **{story_title}**
 
-The story features {', '.join(character_names)} and has {len(slides)} slides. It's perfect for kids aged 5-10 and emphasizes friendship and teamwork.
+# The story features {', '.join(character_names)} and has {len(slides)} slides. It's perfect for kids aged 5-10 and emphasizes friendship and teamwork.
 
-Please create a story card with this title and add the following slides:
-{chr(10).join([f"Slide {i+1}: {slide.get('caption', '')} (Duration: {slide.get('duration', 8)}s)" for i, slide in enumerate(slides)])}"""
+# Please create a story card with this title and add the following slides:
+# {chr(10).join([f"Slide {i+1}: {slide.get('caption', '')} (Duration: {slide.get('duration', 8)}s)" for i, slide in enumerate(slides)])}"""
             
-        except json.JSONDecodeError as e:
-            # Fallback: create a simple story structure
-            return f"""I will create a story featuring {', '.join(character_names)}:
+#         except json.JSONDecodeError as e:
+#             # Fallback: create a simple story structure
+#             return f"""I will create a story featuring {', '.join(character_names)}:
 
-**The Adventure of {', '.join(character_names)}**
+# **The Adventure of {', '.join(character_names)}**
 
-Please create a story card with this title and add 5 slides. The story is perfect for kids and emphasizes friendship and teamwork."""
+# Please create a story card with this title and add 5 slides. The story is perfect for kids and emphasizes friendship and teamwork."""
             
-    except Exception as e:
-        return f"Error generating story: {str(e)}"
+#     except Exception as e:
+#         return f"Error generating story: {str(e)}"
 
 # --- Backend tools (server-side) ---
 
@@ -626,11 +626,12 @@ SYSTEM_PROMPT = (
     "- The tool will return CHARACTER_DATA and SOURCE_COMIC information\n"
     "- CRITICAL: For each character in CHARACTER_DATA, you MUST follow this EXACT sequence:\n"
     "  1. Call createItem('character', character_name) to create the card and get itemId\n"
-    "  2. IMMEDIATELY call setCharacterName(character_name, itemId) using the returned itemId\n"
-    "  3. IMMEDIATELY call setCharacterDescription(character_description, itemId) using the returned itemId\n"
+    "  2. Call setCharacterName(character_name, itemId) using the returned itemId\n"
+    "  3. Call setCharacterDescription(character_description, itemId) using the returned itemId\n"
     "  4. For each trait in character_traits, call addCharacterTrait(trait, itemId) using the returned itemId\n"
     "  5. Call setCharacterSourceComic(source_comic_name, itemId) using the returned itemId\n"
     "  6. Repeat this ENTIRE sequence for each character in CHARACTER_DATA\n"
+    "  7. You do not need to return the character details in the chat\n"
     "- DO NOT STOP after createItem - you MUST populate each character immediately\n"
     "- After creating ALL character cards with complete data, generate a story using generate_character_story and create story-text card\n"
     "\n"
