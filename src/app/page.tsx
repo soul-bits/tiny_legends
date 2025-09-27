@@ -2,8 +2,7 @@
 
 import { useCoAgent, useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotChat, CopilotPopup } from "@copilotkit/react-ui";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button"
 import AppChatHeader, { PopupHeader } from "@/components/canvas/AppChatHeader";
 import { X } from "lucide-react"
