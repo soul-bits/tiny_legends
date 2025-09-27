@@ -1207,30 +1207,30 @@ export default function CopilotKitPage() {
                     "👋 Share a brief or ask to extract fields. Changes will sync with the canvas in real time.",
                 }}
                 suggestions={[
-                  {
-                    title: "Add a Project",
-                    message: "Create a new project.",
-                  },
-                  {
-                    title: "Add an Entity",
-                    message: "Create a new entity.",
-                  },
-                  {
-                    title: "Add a Note",
-                    message: "Create a new note.",
-                  },
-                  {
-                    title: "Add a Chart",
-                    message: "Create a new chart.",
-                  },
+                  // {
+                  //   title: "Add a Project",
+                  //   message: "Create a new project.",
+                  // },
+                  // {
+                  //   title: "Add an Entity",
+                  //   message: "Create a new entity.",
+                  // },
+                  // {
+                  //   title: "Add a Note",
+                  //   message: "Create a new note.",
+                  // },
+                  // {
+                  //   title: "Add a Chart",
+                  //   message: "Create a new chart.",
+                  // },
                   {
                     title: "Add a Character",
                     message: "Create a new character.",
                   },
-                  {
-                    title: "Add a Story",
-                    message: "Create a new story with slides and audio.",
-                  },
+                  // {
+                  //   title: "Add a Story",
+                  //   message: "Create a new story with slides and audio.",
+                  // },
                   {
                     title: "Process Uploaded Comic",
                     message: "Process the most recently uploaded comic file and extract characters from it.",
