@@ -24,7 +24,7 @@ def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or 
                 content = file.read()
         
         # Extract characters using LLM
-        llm = OpenAI(model="gpt-4o")
+        llm = OpenAI(model="gpt-3.5-turbo")
         prompt = f"""
         Extract all unique character names from this comic content. 
         For each character, provide:
@@ -64,7 +64,7 @@ def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or 
 def generate_character_story(characters: Annotated[List[Dict], "List of character data"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
     """Generate a kids story using the extracted characters."""
     try:
-        llm = OpenAI(model="gpt-4o")
+        llm = OpenAI(model="gpt-3.5-turbo")
         
         character_names = [char["name"] for char in characters]
         character_descriptions = [f"{char['name']}: {char['description']}" for char in characters]
@@ -146,13 +146,240 @@ def process_uploaded_comic() -> str:
     except Exception as e:
         return f"Error processing uploaded comic: {str(e)}"
 
+def generate_story_with_slides(characters: Annotated[List[Dict], "List of character data to use in the story"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
+    """Generate a kids story with extracted characters and create story slides (at least 5 slides, under 200 words total)."""
+    try:
+        if not characters or len(characters) == 0:
+            return "No characters provided. Please extract characters from a comic first."
+        
+        llm = OpenAI(model="gpt-3.5-turbo")
+        
+        character_names = [char.get("name", "Unknown") for char in characters]
+        character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
+        
+        prompt = f"""
+        Create a fun, engaging kids story featuring these characters:
+        {', '.join(character_names)}
+        
+        Character details:
+        {'; '.join(character_descriptions)}
+        
+        Story requirements:
+        - Age-appropriate for children (5-10 years old)
+        - Include all characters
+        - Theme: {theme}
+        - Total length: Under 50 words
+        - Create exactly 5 slides
+        - Each slide should have a clear scene/action
+        - Clear beginning, middle, and end
+        - Emphasize friendship and teamwork
+        
+        Format the response as JSON with this structure:
+        {{
+            "title": "Story Title",
+            "slides": [
+                {{
+                    "id": "slide-1",
+                    "caption": "Slide 1 caption describing the scene",
+                    "duration": 8
+                }},
+                {{
+                    "id": "slide-2", 
+                    "caption": "Slide 2 caption describing the scene",
+                    "duration": 10
+                }},
+                {{
+                    "id": "slide-3",
+                    "caption": "Slide 3 caption describing the scene", 
+                    "duration": 12
+                }},
+                {{
+                    "id": "slide-4",
+                    "caption": "Slide 4 caption describing the scene",
+                    "duration": 9
+                }},
+                {{
+                    "id": "slide-5",
+                    "caption": "Slide 5 caption describing the scene",
+                    "duration": 7
+                }}
+            ]
+        }}
+        
+        Generate the story:
+        """
+        
+        response = llm.complete(prompt)
+        
+        # Parse the JSON response
+        import json
+        import re
+        
+        # Clean the response by removing markdown code blocks
+        response_text = response.text.strip()
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]  # Remove ```json
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]  # Remove ```
+        response_text = response_text.strip()
+        
+        try:
+            story_data = json.loads(response_text)
+            
+            # Validate that we have at least 5 slides
+            if len(story_data.get("slides", [])) < 5:
+                # If we don't have enough slides, create additional ones
+                slides = story_data.get("slides", [])
+                while len(slides) < 5:
+                    slides.append({
+                        "id": f"slide-{len(slides) + 1}",
+                        "caption": f"The adventure continues with {', '.join(character_names)}...",
+                        "duration": 8
+                    })
+                story_data["slides"] = slides
+            
+            return f"""Successfully generated a story with {len(story_data.get('slides', []))} slides:
+
+**{story_data.get('title', 'Untitled Story')}**
+
+I will now create a story card with these slides. The story features {', '.join(character_names)} and is perfect for kids aged 5-10.
+
+STORY_DATA: {story_data}"""
+            
+        except json.JSONDecodeError as e:
+            # Fallback: create a simple story structure
+            return f"""Generated a story featuring {', '.join(character_names)}:
+
+**The Adventure of {', '.join(character_names)}**
+
+I will now create a story card with 5 slides. The story is perfect for kids and emphasizes friendship and teamwork."""
+            
+    except Exception as e:
+            return f"Error generating story: {str(e)}"
+
+def generate_and_create_story(characters: Annotated[List[Dict], "List of character data to use in the story"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
+    """Generate a kids story with extracted characters and automatically create a story card in the UI (under 50 words, 5 slides)."""
+    try:
+        if not characters or len(characters) == 0:
+            return "No characters provided. Please extract characters from a comic first."
+        
+        llm = OpenAI(model="gpt-3.5-turbo")
+        
+        character_names = [char.get("name", "Unknown") for char in characters]
+        character_descriptions = [f"{char.get('name', 'Unknown')}: {char.get('description', 'No description')}" for char in characters]
+        
+        prompt = f"""
+        Create a fun, engaging kids story featuring these characters:
+        {', '.join(character_names)}
+        
+        Character details:
+        {'; '.join(character_descriptions)}
+        
+        Story requirements:
+        - Age-appropriate for children (5-10 years old)
+        - Include all characters
+        - Theme: {theme}
+        - Total length: Under 50 words
+        - Create exactly 5 slides
+        - Each slide should have a clear scene/action
+        - Clear beginning, middle, and end
+        - Emphasize friendship and teamwork
+        
+        Format the response as JSON with this structure:
+        {{
+            "title": "Story Title",
+            "slides": [
+                {{
+                    "id": "slide-1",
+                    "caption": "Slide 1 caption describing the scene",
+                    "duration": 8
+                }},
+                {{
+                    "id": "slide-2", 
+                    "caption": "Slide 2 caption describing the scene",
+                    "duration": 10
+                }},
+                {{
+                    "id": "slide-3",
+                    "caption": "Slide 3 caption describing the scene", 
+                    "duration": 12
+                }},
+                {{
+                    "id": "slide-4",
+                    "caption": "Slide 4 caption describing the scene",
+                    "duration": 9
+                }},
+                {{
+                    "id": "slide-5",
+                    "caption": "Slide 5 caption describing the scene",
+                    "duration": 7
+                }}
+            ]
+        }}
+        
+        Generate the story:
+        """
+        
+        response = llm.complete(prompt)
+        
+        # Parse the JSON response
+        import json
+        import re
+        
+        # Clean the response by removing markdown code blocks
+        response_text = response.text.strip()
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]  # Remove ```json
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]  # Remove ```
+        response_text = response_text.strip()
+        
+        try:
+            story_data = json.loads(response_text)
+            
+            # Validate that we have at least 5 slides
+            if len(story_data.get("slides", [])) < 5:
+                # If we don't have enough slides, create additional ones
+                slides = story_data.get("slides", [])
+                while len(slides) < 5:
+                    slides.append({
+                        "id": f"slide-{len(slides) + 1}",
+                        "caption": f"The adventure continues with {', '.join(character_names)}...",
+                        "duration": 8
+                    })
+                story_data["slides"] = slides
+            
+            # Return instructions for creating the story card
+            story_title = story_data.get('title', 'Untitled Story')
+            slides = story_data.get('slides', [])
+            
+            return f"""I will now create a story card with the generated story:
+
+**{story_title}**
+
+The story features {', '.join(character_names)} and has {len(slides)} slides. It's perfect for kids aged 5-10 and emphasizes friendship and teamwork.
+
+Please create a story card with this title and add the following slides:
+{chr(10).join([f"Slide {i+1}: {slide.get('caption', '')} (Duration: {slide.get('duration', 8)}s)" for i, slide in enumerate(slides)])}"""
+            
+        except json.JSONDecodeError as e:
+            # Fallback: create a simple story structure
+            return f"""I will create a story featuring {', '.join(character_names)}:
+
+**The Adventure of {', '.join(character_names)}**
+
+Please create a story card with this title and add 5 slides. The story is perfect for kids and emphasizes friendship and teamwork."""
+            
+    except Exception as e:
+        return f"Error generating story: {str(e)}"
+
 # --- Backend tools (server-side) ---
 
 
 # --- Frontend tool stubs (names/signatures only; execution happens in the UI) ---
 
 def createItem(
-    type: Annotated[str, "One of: project, entity, note, chart, character."],
+    type: Annotated[str, "One of: project, entity, note, chart, character, story."],
     name: Annotated[Optional[str], "Optional item name."] = None,
 ) -> str:
     """Create a new canvas item and return its id."""
@@ -290,6 +517,37 @@ def setCharacterImageUrl(image_url: Annotated[str, "Image URL."], itemId: Annota
 def setCharacterSourceComic(source_comic: Annotated[str, "Source comic."], itemId: Annotated[str, "Character id."]) -> str:
     return f"setCharacterSourceComic({source_comic}, {itemId})"
 
+# Story actions
+def setStoryTitle(title: Annotated[str, "Story title."], itemId: Annotated[str, "Story id."]) -> str:
+    return f"setStoryTitle({title}, {itemId})"
+
+def addStorySlide(
+    itemId: Annotated[str, "Story id."],
+    caption: Annotated[str, "Slide caption."],
+    duration: Annotated[int, "Slide duration in seconds."] = 8,
+) -> str:
+    return f"addStorySlide({itemId}, {caption}, {duration})"
+
+def setStorySlideCaption(
+    itemId: Annotated[str, "Story id."],
+    slideId: Annotated[str, "Slide id."],
+    caption: Annotated[str, "New slide caption."],
+) -> str:
+    return f"setStorySlideCaption({itemId}, {slideId}, {caption})"
+
+def setStorySlideDuration(
+    itemId: Annotated[str, "Story id."],
+    slideId: Annotated[str, "Slide id."],
+    duration: Annotated[int, "New slide duration in seconds."],
+) -> str:
+    return f"setStorySlideDuration({itemId}, {slideId}, {duration})"
+
+def removeStorySlide(
+    itemId: Annotated[str, "Story id."],
+    slideId: Annotated[str, "Slide id."],
+) -> str:
+    return f"removeStorySlide({itemId}, {slideId})"
+
 FIELD_SCHEMA = (
     "FIELD SCHEMA (authoritative):\n"
     "- project.data:\n"
@@ -310,6 +568,9 @@ FIELD_SCHEMA = (
     "  - traits: string[] (character traits/tags)\n"
     "  - image_url: string (URL to character image)\n"
     "  - source_comic: string (which comic this character came from)\n"
+    "- story.data:\n"
+    "  - title: string (story title)\n"
+    "  - slides: Array<{id: string, imageUrl: string, audioUrl?: string, caption?: string, duration?: number}>\n"
     "- chart.data:\n"
     "  - field1: Array<{id: string, label: string, value: number | ''}> with value in [0..100] or ''\n"
 )
@@ -319,20 +580,31 @@ SYSTEM_PROMPT = (
     + FIELD_SCHEMA +
     "\nMUTATION/TOOL POLICY:\n"
     "- When you claim to create/update/delete, you MUST call the corresponding tool(s) (frontend or backend).\n"
-    "- To create new cards, call the frontend tool `createItem` with `type` in {project, entity, note, chart, character} and optional `name`.\n"
+    "- To create new cards, call the frontend tool `createItem` with `type` in {project, entity, note, chart, character, story} and optional `name`.\n"
     "- After tools run, rely on the latest shared state (ground truth) when replying.\n"
     "- To set a card's subtitle (never the data fields): use setItemSubtitleOrDescription.\n\n"
     "DESCRIPTION MAPPING:\n"
     "- For project/entity/chart: treat 'description', 'overview', 'summary', 'caption', 'blurb' as the card subtitle; use setItemSubtitleOrDescription.\n"
     "- For notes: 'content', 'description', 'text', or 'note' refers to note content; use setNoteField1 / appendNoteField1 / clearNoteField1.\n"
-    "- For characters: when processing comics or creating characters, use the character-specific tools to set name, description, traits, etc.\n\n"
+    "- For characters: when processing comics or creating characters, use the character-specific tools to set name, description, traits, etc.\n"
+    "- For stories: use setStoryTitle for the story title, and addStorySlide to add slides with captions and durations.\n\n"
     "COMIC PROCESSING:\n"
     "- When the user asks to process an uploaded comic, ALWAYS use the process_uploaded_comic backend tool first.\n"
     "- This tool will automatically find the most recently uploaded comic file and extract characters.\n"
     "- The tool will return the extracted characters in a formatted response.\n"
     "- After the tool returns the characters, you MUST create character cards for each extracted character.\n"
     "- For each character, call createItem('character', character_name) then use setCharacterName, setCharacterDescription, addCharacterTrait, etc.\n"
+    "- After creating character cards, ALWAYS generate a story using generate_and_create_story and create a story card.\n"
     "- Do NOT ask for file paths - the process_uploaded_comic tool handles this automatically.\n\n"
+    "STORY GENERATION:\n"
+    "- When the user asks to generate a story with extracted characters, ALWAYS use the generate_and_create_story backend tool.\n"
+    "- This tool will create a kids story (under 50 words) with exactly 5 slides featuring the characters.\n"
+    "- The tool will provide instructions for creating the story card - FOLLOW THESE INSTRUCTIONS EXACTLY.\n"
+    "- IMMEDIATELY create a story card using createItem('story', story_title) after the tool returns.\n"
+    "- Use setStoryTitle to set the story title, then addStorySlide for each slide with caption and duration.\n"
+    "- The story should be age-appropriate for children (5-10 years old) and emphasize friendship and teamwork.\n"
+    "- ALWAYS create the story card in the UI - do not just return the story text.\n"
+    "- You can also generate stories by asking the user to 'generate a story with the extracted characters' or 'create a story using the characters on the canvas'.\n\n"
     "STRICT GROUNDING RULES:\n"
     "1) ONLY use shared state (items/globalTitle/globalDescription) as the source of truth.\n"
     "2) Before ANY read or write, assume values may have changed; always read the latest state.\n"
@@ -340,7 +612,7 @@ SYSTEM_PROMPT = (
 )
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1"),
+    llm=OpenAI(model="gpt-3.5-turbo"),
     # Provide frontend tool stubs so the model knows their names/signatures.
     frontend_tools=[
         createItem,
@@ -374,12 +646,19 @@ agentic_chat_router = get_ag_ui_workflow_router(
         removeCharacterTrait,
         setCharacterImageUrl,
         setCharacterSourceComic,
+        setStoryTitle,
+        addStorySlide,
+        setStorySlideCaption,
+        setStorySlideDuration,
+        removeStorySlide,
     ],
     backend_tools=[
         extract_characters_from_comic,
         generate_character_story,
         upload_and_extract_comic,
         process_uploaded_comic,
+        generate_story_with_slides,
+        generate_and_create_story,
     ],
     system_prompt=SYSTEM_PROMPT,
     initial_state={

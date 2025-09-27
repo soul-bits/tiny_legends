@@ -1000,6 +1000,119 @@ export default function CopilotKitPage() {
     },
   });
 
+  // Story actions
+  useCopilotAction({
+    name: "setStoryTitle",
+    description: "Set story title.",
+    available: "remote",
+    parameters: [
+      { name: "title", type: "string", required: true, description: "Story title." },
+      { name: "itemId", type: "string", required: true, description: "Story id." },
+    ],
+    handler: ({ title, itemId }: { title: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const sd = prev as StorySlideData;
+        if (Object.prototype.hasOwnProperty.call(sd, "title")) {
+          return { ...sd, title } as StorySlideData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "addStorySlide",
+    description: "Add a story slide.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story id." },
+      { name: "caption", type: "string", required: true, description: "Slide caption." },
+      { name: "duration", type: "number", required: false, description: "Slide duration in seconds." },
+    ],
+    handler: ({ itemId, caption, duration = 8 }: { itemId: string; caption: string; duration?: number }) => {
+      updateItemData(itemId, (prev) => {
+        const sd = prev as StorySlideData;
+        if (Object.prototype.hasOwnProperty.call(sd, "slides")) {
+          const newSlide = {
+            id: `slide-${Date.now()}`,
+            imageUrl: "",
+            audioUrl: "",
+            caption,
+            duration
+          };
+          return { ...sd, slides: [...(sd.slides || []), newSlide] } as StorySlideData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setStorySlideCaption",
+    description: "Set story slide caption.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story id." },
+      { name: "slideId", type: "string", required: true, description: "Slide id." },
+      { name: "caption", type: "string", required: true, description: "New slide caption." },
+    ],
+    handler: ({ itemId, slideId, caption }: { itemId: string; slideId: string; caption: string }) => {
+      updateItemData(itemId, (prev) => {
+        const sd = prev as StorySlideData;
+        if (Object.prototype.hasOwnProperty.call(sd, "slides")) {
+          const updatedSlides = (sd.slides || []).map(slide => 
+            slide.id === slideId ? { ...slide, caption } : slide
+          );
+          return { ...sd, slides: updatedSlides } as StorySlideData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setStorySlideDuration",
+    description: "Set story slide duration.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story id." },
+      { name: "slideId", type: "string", required: true, description: "Slide id." },
+      { name: "duration", type: "number", required: true, description: "New slide duration in seconds." },
+    ],
+    handler: ({ itemId, slideId, duration }: { itemId: string; slideId: string; duration: number }) => {
+      updateItemData(itemId, (prev) => {
+        const sd = prev as StorySlideData;
+        if (Object.prototype.hasOwnProperty.call(sd, "slides")) {
+          const updatedSlides = (sd.slides || []).map(slide => 
+            slide.id === slideId ? { ...slide, duration } : slide
+          );
+          return { ...sd, slides: updatedSlides } as StorySlideData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "removeStorySlide",
+    description: "Remove a story slide.",
+    available: "remote",
+    parameters: [
+      { name: "itemId", type: "string", required: true, description: "Story id." },
+      { name: "slideId", type: "string", required: true, description: "Slide id." },
+    ],
+    handler: ({ itemId, slideId }: { itemId: string; slideId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const sd = prev as StorySlideData;
+        if (Object.prototype.hasOwnProperty.call(sd, "slides")) {
+          const updatedSlides = (sd.slides || []).filter(slide => slide.id !== slideId);
+          return { ...sd, slides: updatedSlides } as StorySlideData;
+        }
+        return prev;
+      });
+    },
+  });
+
   // Comic upload action - uses CopilotKit backend tools
   useCopilotAction({
     name: "processUploadedComic",
