@@ -2,7 +2,7 @@
 
 ## **Project Overview**
 
-Tiny Legends is an innovative AI-powered platform that transforms comic books into interactive children's stories through intelligent character extraction, story generation, and visual storytelling. Built on a modern fullstack architecture, it combines LlamaIndex agents, CopilotKit UI integration, and OpenAI's DALL-E 3 to create engaging, age-appropriate content for children aged 5-10.
+Tiny Legends is an innovative AI-powered platform that transforms comic books into interactive children's stories through intelligent character extraction, story generation, and visual storytelling. Built on a modern fullstack architecture, it combines LlamaIndex agents, CopilotKit UI integration, and OpenAI's DALL-E 3 to create engaging, age-appropriate content for children aged 5-10. AG-UI protocol is ofcourse the skeleton of all. This also integrates with Drive to pick up comics from there using composio.
 
 ## **Core Flow**
 
