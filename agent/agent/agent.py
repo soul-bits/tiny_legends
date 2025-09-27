@@ -634,17 +634,19 @@ SYSTEM_PROMPT = (
     "- DO NOT STOP after createItem - you MUST populate each character immediately\n"
     "- After creating ALL character cards with complete data, generate a story using generate_and_create_story\n"
     "\n"
-    "STORY CREATION:\n"
-    "- Use createItem('story', title) to create story card\n"
-    "- Use setStoryTitle(title, itemId) to set title\n"
-    "- Use addStorySlide(caption, duration, itemId) for each slide\n"
-    "\n"
+    # "STORY CREATION:\n"
+    # "- Use createItem('story', title) to create story card\n"
+    # "- Use setStoryTitle(title, itemId) to set title\n"
+    # "- Use addStorySlide(caption, duration, itemId) for each slide\n"
+    # "\n"
     "STORY TEXT CREATION:\n"
-    "- Use createItem('story-text', title) to create story text card\n"
+    "- When user asks to 'Generate a story using the characters currently on the canvas', ALWAYS use generate_character_story backend tool first\n"
+    "- Then create a story-text card using createItem('story-text', title)\n"
     "- Use setStoryTextTitle(title, itemId) to set title\n"
     "- Use setStoryTextContent(content, itemId) to set story content\n"
-    "- Use setStoryTextCharacters(characters, itemId) to set character list\n"
+    "- Use setStoryTextCharacters(characters, itemId) to set character list (get from existing character cards on canvas)\n"
     "- Use setStoryTextTheme(theme, itemId) to set story theme\n"
+    "- Generate the story content using the characters from the canvas and the requested theme\n"
     "\n"
     "Always use the latest shared state as ground truth.\n"
 )
@@ -675,7 +677,7 @@ agentic_chat_router = get_ag_ui_workflow_router(
     ],
     backend_tools=[
         process_uploaded_comic,
-        generate_and_create_story,
+        generate_character_story,
     ],
     system_prompt=SYSTEM_PROMPT,
     initial_state={
