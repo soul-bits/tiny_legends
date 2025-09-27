@@ -27,7 +27,7 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Demo story data using local uploaded images
+  // Demo story data using TTS for narration
   const demoStories: Item[] = [
     {
       id: "demo-story-1",
@@ -39,30 +39,26 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
         slides: [
           {
             id: "demo-slide-1",
-            imageUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_slides/Screenshot 2025-09-26 at 8.01.28 PM.png",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "Welcome to the world of Tiny Legends! Here begins our magical adventure...",
+            imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&crop=center",
+            caption: "Welcome to the world of Tiny Legends! Here begins our magical adventure through the canvas where stories come to life.",
             duration: 8
           },
           {
             id: "demo-slide-2",
-            imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&crop=center",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "Our brave characters discover the canvas where all stories come to life...",
+            imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=600&fit=crop&crop=center",
+            caption: "Our brave characters discover the canvas where all stories come to life. Each click brings new adventures and endless possibilities.",
             duration: 10
           },
           {
             id: "demo-slide-3",
-            imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=600&fit=crop&crop=center",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "With the power of imagination, they create new worlds and adventures...",
+            imageUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=600&fit=crop&crop=center",
+            caption: "With the power of imagination, they create new worlds and adventures. The canvas becomes their playground for storytelling.",
             duration: 12
           },
           {
             id: "demo-slide-4",
-            imageUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=600&fit=crop&crop=center",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "And so the legend continues, with endless possibilities for new stories!",
+            imageUrl: "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?w=800&h=600&fit=crop&crop=center",
+            caption: "And so the legend continues, with endless possibilities for new stories! Every story is a new beginning waiting to be told.",
             duration: 6
           }
         ]
@@ -78,23 +74,20 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
         slides: [
           {
             id: "demo-slide-5",
-            imageUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_slides/Screenshot 2025-09-26 at 8.01.28 PM.png",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "In the digital realm, characters come alive on the canvas...",
+            imageUrl: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&h=600&fit=crop&crop=center",
+            caption: "In the digital realm, characters come alive on the canvas. Each pixel tells a story, each color holds a memory.",
             duration: 9
           },
           {
             id: "demo-slide-6",
-            imageUrl: "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?w=800&h=600&fit=crop&crop=center",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "Each story is a new adventure waiting to be discovered...",
+            imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&crop=center",
+            caption: "Each story is a new adventure waiting to be discovered. The canvas is our gateway to infinite worlds of imagination.",
             duration: 11
           },
           {
             id: "demo-slide-7",
-            imageUrl: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&h=600&fit=crop&crop=center",
-            audioUrl: "/Users/achin/code/canvas-with-llamaindex-composio/uploads/story_audio/dummy.m4a",
-            caption: "The canvas is infinite, and so are the stories we can tell!",
+            imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=600&fit=crop&crop=center",
+            caption: "The canvas is infinite, and so are the stories we can tell! Every creation is a masterpiece waiting to be shared.",
             duration: 7
           }
         ]
@@ -305,7 +298,7 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
       // TTS has finished, advance to next slide
       const timer = setTimeout(() => {
         nextSlide();
-      }, 1000); // Wait a bit after TTS finishes
+      }, 1500); // Wait a bit after TTS finishes
       
       return () => clearTimeout(timer);
     }
