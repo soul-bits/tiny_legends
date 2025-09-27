@@ -35,17 +35,30 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
   const slides = data.slides || [];
   const currentSlide = slides[currentSlideIndex];
 
-  // Load available voices for TTS
+  // Load available voices for TTS with Whisper-like preferences
   useEffect(() => {
     const loadVoices = () => {
       const voices = speechSynthesis.getVoices();
       setAvailableVoices(voices);
       if (voices.length > 0 && !selectedVoice) {
-        // Prefer English voices, fallback to first available
-        const englishVoice = voices.find(voice => 
-          voice.lang.startsWith('en') || voice.lang.includes('en')
+        // Prefer high-quality English voices that sound more like Whisper
+        const preferredVoices = voices.filter(voice => 
+          voice.lang.startsWith('en') && 
+          (voice.name.toLowerCase().includes('google') || 
+           voice.name.toLowerCase().includes('neural') ||
+           voice.name.toLowerCase().includes('enhanced') ||
+           voice.name.toLowerCase().includes('premium'))
         );
-        setSelectedVoice(englishVoice?.name || voices[0].name);
+        
+        if (preferredVoices.length > 0) {
+          setSelectedVoice(preferredVoices[0].name);
+        } else {
+          // Fallback to any English voice
+          const englishVoice = voices.find(voice => 
+            voice.lang.startsWith('en') || voice.lang.includes('en')
+          );
+          setSelectedVoice(englishVoice?.name || voices[0].name);
+        }
       }
     };
 
@@ -105,7 +118,7 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
     }
   };
 
-  // TTS functions
+  // TTS functions with Whisper-like quality
   const speakText = (text: string) => {
     if (!text.trim()) return;
     
@@ -122,10 +135,14 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
       }
     }
     
-    // Set speech parameters
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
+    // Enhanced speech parameters for Whisper-like quality
+    utterance.rate = 0.85; // Slightly slower for better clarity
+    utterance.pitch = 0.95; // Slightly lower pitch for more natural sound
     utterance.volume = isMuted ? 0 : volume;
+    
+    // Add slight pause between sentences for better flow
+    const processedText = text.replace(/\./g, '. ').replace(/\?/g, '? ').replace(/!/g, '! ');
+    utterance.text = processedText;
     
     utterance.onstart = () => setIsTTSPlaying(true);
     utterance.onend = () => setIsTTSPlaying(false);
@@ -307,10 +324,12 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                 {(currentSlide?.caption || data.title) && (
                   <button
                     onClick={toggleTTS}
-                    className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors"
-                    title={isTTSPlaying ? "Stop narration" : "Read text aloud"}
+                    className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors relative group"
+                    title={isTTSPlaying ? "Stop Whisper-style narration" : "Read text aloud with enhanced voice"}
                   >
                     {isTTSPlaying ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {/* Quality indicator */}
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </button>
                 )}
                 
@@ -404,11 +423,22 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                   onChange={(e) => setSelectedVoice(e.target.value)}
                   className="text-xs rounded border px-2 py-1 bg-white"
                 >
-                  {availableVoices.map((voice) => (
-                    <option key={voice.name} value={voice.name}>
-                      {voice.name} ({voice.lang})
-                    </option>
-                  ))}
+                  {availableVoices
+                    .filter(voice => voice.lang.startsWith('en'))
+                    .sort((a, b) => {
+                      // Prioritize high-quality voices
+                      const aQuality = a.name.toLowerCase().includes('google') || 
+                                     a.name.toLowerCase().includes('neural') ? 1 : 0;
+                      const bQuality = b.name.toLowerCase().includes('google') || 
+                                     b.name.toLowerCase().includes('neural') ? 1 : 0;
+                      return bQuality - aQuality;
+                    })
+                    .map((voice) => (
+                      <option key={voice.name} value={voice.name}>
+                        {voice.name.includes('Google') ? '🎤 ' : '🔊 '}
+                        {voice.name} ({voice.lang})
+                      </option>
+                    ))}
                 </select>
               )}
               
