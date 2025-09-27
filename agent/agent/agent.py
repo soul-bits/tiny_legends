@@ -106,8 +106,8 @@ def generate_character_story(characters: Annotated[List[Dict], "List of characte
         - Age-appropriate for children (5-10 years old)
         - Include all characters
         - Theme: {theme}
-        - Length: EXACTLY 200 words or less
-        - Clear beginning, middle, and end
+        - Length: EXACTLY 7 lines, each line less than 20 words
+        - Simple, clear language
         - Emphasize friendship and teamwork
         
         Write the story (keep it short and sweet):
