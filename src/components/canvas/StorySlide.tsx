@@ -303,12 +303,11 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">📖</div>
-                    <div className="text-sm">No image for this slide</div>
-                  </div>
-                </div>
+                <img
+                  src="/tl.png"
+                  alt="Default story slide"
+                  className="w-full h-full object-cover"
+                />
               )}
               
               {/* Slide Caption Overlay */}
@@ -474,9 +473,11 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                     className="w-full h-full object-cover rounded"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                    {index + 1}
-                  </div>
+                  <img
+                    src="/tl.png"
+                    alt="Default story slide"
+                    className="w-full h-full object-cover rounded"
+                  />
                 )}
               </div>
             ))}

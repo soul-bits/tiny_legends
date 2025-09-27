@@ -477,10 +477,11 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
             className="max-w-full max-h-full object-contain"
           />
         ) : (
-          <div className="text-center">
-            <BookOpen className="h-32 w-32 text-gray-600 mx-auto mb-4" />
-            <div className="text-xl text-gray-400">No image for this slide</div>
-          </div>
+          <img
+            src="/tl.png"
+            alt="Default story slide"
+            className="max-w-full max-h-full object-contain"
+          />
         )}
 
         {/* Slide Caption Overlay */}
@@ -587,9 +588,11 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
                   className="w-full h-full object-cover rounded"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                  {index + 1}
-                </div>
+                <img
+                  src="/tl.png"
+                  alt="Default story slide"
+                  className="w-full h-full object-cover rounded"
+                />
               )}
             </div>
           ))}
@@ -622,9 +625,11 @@ export function StoryView({ stories, onClose }: StoryViewProps) {
                       className="w-full h-full object-cover rounded"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                      {index + 1}
-                    </div>
+                    <img
+                      src="/tl.png"
+                      alt="Default story slide"
+                      className="w-full h-full object-cover rounded"
+                    />
                   )}
                 </div>
               );
