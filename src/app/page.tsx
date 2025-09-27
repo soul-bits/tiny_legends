@@ -1011,6 +1011,62 @@ export default function CopilotKitPage() {
     },
   });
 
+  useCopilotAction({
+    name: "generateCharacterImage",
+    description: "Generate an image for a character using DALL-E and save it locally.",
+    available: "remote",
+    parameters: [
+      { name: "character_name", type: "string", required: true, description: "Character name." },
+      { name: "character_description", type: "string", required: true, description: "Character description." },
+      { name: "character_traits", type: "string[]", required: true, description: "Character traits array." },
+      { name: "itemId", type: "string", required: true, description: "Character id to update with generated image." },
+    ],
+    handler: async ({ character_name, character_description, character_traits, itemId }: { 
+      character_name: string; 
+      character_description: string; 
+      character_traits: string[]; 
+      itemId: string; 
+    }) => {
+      try {
+        // Call the local API to generate the character image
+        const response = await fetch('/api/generate-character-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            character_name,
+            character_description,
+            character_traits,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.image_url) {
+          // Update the character with the generated image URL
+          updateItemData(itemId, (prev) => {
+            const cd = prev as CharacterData;
+            if (Object.prototype.hasOwnProperty.call(cd, "image_url")) {
+              return { ...cd, image_url: data.image_url } as CharacterData;
+            }
+            return prev;
+          });
+          return `Successfully generated and saved image for ${character_name} at ${data.image_url}`;
+        } else {
+          throw new Error(data.error || 'Failed to generate character image');
+        }
+      } catch (error) {
+        console.error('Error generating character image:', error);
+        return `Error generating image for ${character_name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      }
+    },
+  });
+
   // Story actions
   useCopilotAction({
     name: "setStoryTitle",

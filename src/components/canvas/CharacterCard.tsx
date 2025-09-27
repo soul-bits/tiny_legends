@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { X, Plus, Edit3, Save, XCircle } from "lucide-react";
+import { X, Plus, Edit3, Save, XCircle, ImageIcon } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 import type { CharacterData } from "@/lib/canvas/types";
 import { useState } from "react";
@@ -22,9 +22,49 @@ export function CharacterCard({
   itemId
 }: CharacterCardProps) {
   const [imageError, setImageError] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   
   const setCharacter = (partial: Partial<CharacterData>) => 
     onUpdateData((prev) => ({ ...prev, ...partial }));
+
+  const handleGenerateImage = async () => {
+    if (!data.name || !data.description) {
+      alert("Please provide character name and description before generating an image.");
+      return;
+    }
+    
+    try {
+      setIsGeneratingImage(true);
+      const response = await fetch('/api/generate-character-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          character_name: data.name,
+          character_description: data.description,
+          character_traits: data.traits || [],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.image_url) {
+        setCharacter({ image_url: result.image_url });
+      } else {
+        throw new Error(result.error || 'Failed to generate character image');
+      }
+    } catch (error) {
+      console.error('Error generating character image:', error);
+      alert(`Error generating image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
 
   const handleImageError = () => {
     setImageError(true);
@@ -52,7 +92,7 @@ export function CharacterCard({
   return (
     <div className="mt-4">
       {/* Character Image Section */}
-      <div className="mb-4 flex justify-center">
+      <div className="mb-4 flex flex-col items-center gap-2">
         <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-accent/20 bg-gray-50">
           {data.image_url && !imageError ? (
             <img
@@ -70,7 +110,23 @@ export function CharacterCard({
               </div>
             </div>
           )}
+          {isGeneratingImage && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-white text-xs">Generating...</div>
+            </div>
+          )}
         </div>
+        {isEditing && (
+          <button
+            type="button"
+            onClick={handleGenerateImage}
+            disabled={isGeneratingImage || !data.name || !data.description}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 rounded-md border border-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ImageIcon className="h-3 w-3" />
+            {isGeneratingImage ? "Generating..." : "Generate Image"}
+          </button>
+        )}
       </div>
 
       {/* Character Details */}
