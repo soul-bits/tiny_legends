@@ -12,19 +12,19 @@ import ShikiHighlighter from "react-shiki/web";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "motion/react";
 import { EmptyState } from "@/components/empty-state";
 import { cn, getContentArg } from "@/lib/utils";
-import type { AgentState, Item, ItemData, ProjectData, EntityData, NoteData, ChartData, CardType } from "@/lib/canvas/types";
+import type { AgentState, Item, ItemData, ProjectData, EntityData, NoteData, ChartData, CardType, CharacterData, StorySlideData } from "@/lib/canvas/types";
 import { initialState, isNonEmptyAgentState } from "@/lib/canvas/state";
 import { projectAddField4Item, projectSetField4ItemText, projectSetField4ItemDone, projectRemoveField4Item, chartAddField1Metric, chartSetField1Label, chartSetField1Value, chartRemoveField1Metric } from "@/lib/canvas/updates";
 import useMediaQuery from "@/hooks/use-media-query";
 import ItemHeader from "@/components/canvas/ItemHeader";
 import NewItemMenu from "@/components/canvas/NewItemMenu";
+import StoryView from "@/components/canvas/StoryView";
 
 export default function CopilotKitPage() {
   const { state, setState } = useCoAgent<AgentState>({
     name: "sample_agent",
     initialState,
   });
-  
 
   // Global cache for the last non-empty agent state
   const cachedStateRef = useRef<AgentState>(state ?? initialState);
@@ -38,6 +38,7 @@ export default function CopilotKitPage() {
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [showJsonView, setShowJsonView] = useState<boolean>(false);
+  const [showStoryView, setShowStoryView] = useState<boolean>(false);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const { scrollY } = useScroll({ container: scrollAreaRef });
   const headerScrollThreshold = 64;
@@ -60,50 +61,6 @@ export default function CopilotKitPage() {
 
   useEffect(() => {
     console.log("[CoAgent state updated]", state);
-    
-    // Auto-sync to Google Sheets if syncSheetId is present
-    const autoSyncToSheets = async () => {
-      console.log("[AUTO-SYNC] Checking sync conditions:", {
-        hasState: !!state,
-        syncSheetId: state?.syncSheetId,
-        itemsLength: state?.items?.length || 0
-      });
-      
-      if (!state || !state.syncSheetId) {
-        console.log("[AUTO-SYNC] Skipping - no sheet configured");
-        return; // No sync needed - no sheet configured
-      }
-      
-      try {
-        console.log(`[AUTO-SYNC] Syncing ${state.items?.length || 0} items to sheet: ${state.syncSheetId}`);
-        
-        const response = await fetch('/api/sheets/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            canvas_state: state,
-            sheet_id: state.syncSheetId,
-            sheet_name: state.syncSheetName,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          console.log('[AUTO-SYNC] ✅ Successfully synced to Google Sheets:', result.message);
-        } else {
-          const error = await response.json();
-          console.warn('[AUTO-SYNC] ❌ Failed to sync to Google Sheets:', error.error);
-        }
-      } catch (error) {
-        console.warn('[AUTO-SYNC] ❌ Exception during auto-sync:', error);
-      }
-    };
-
-    // Debounce the sync to avoid too many requests
-    const timeoutId = setTimeout(autoSyncToSheets, 1000);
-    return () => clearTimeout(timeoutId);
   }, [state]);
 
   // Reset JSON view when there are no items
@@ -113,6 +70,14 @@ export default function CopilotKitPage() {
       setShowJsonView(false);
     }
   }, [viewState?.items, showJsonView]);
+
+  // Reset story view when there are no story items
+  useEffect(() => {
+    const storyItems = (viewState?.items ?? []).filter(item => item.type === "story");
+    if (storyItems.length === 0 && showStoryView) {
+      setShowStoryView(false);
+    }
+  }, [viewState?.items, showStoryView]);
 
 
 
@@ -153,10 +118,13 @@ export default function CopilotKitPage() {
         "  - field1: string (textarea)",
         "- chart.data:",
         "  - field1: Array<{id: string, label: string, value: number | ''}> with value in [0..100] or ''",
+        "- story.data:",
+        "  - title: string (story title)",
+        "  - slides: Array<{id: string, imageUrl: string, audioUrl?: string, caption?: string, duration?: number}>",
       ].join("\n");
       const toolUsageHints = [
         "TOOL USAGE HINTS:",
-        "- To create cards, call createItem with { type: 'project' | 'entity' | 'note' | 'chart', name?: string } and use returned id.",
+        "- To create cards, call createItem with { type: 'project' | 'entity' | 'note' | 'chart' | 'character' | 'story', name?: string } and use returned id.",
         "- Prefer calling specific actions: setProjectField1, setProjectField2, setProjectField3, addProjectChecklistItem, setProjectChecklistItem, removeProjectChecklistItem.",
         "- field2 values: 'Option A' | 'Option B' | 'Option C' | '' (empty clears).",
         "- field3 accepts natural dates (e.g., 'tomorrow', '2025-01-30'); it will be normalized to YYYY-MM-DD.",
@@ -238,6 +206,7 @@ export default function CopilotKitPage() {
         { id: "entity", label: "Entity" },
         { id: "note", label: "Note" },
         { id: "chart", label: "Chart" },
+        { id: "character", label: "Character" },
       ];
       let selected: CardType | "" = "";
       return (
@@ -323,6 +292,19 @@ export default function CopilotKitPage() {
   // Helper to generate default data by type
   const defaultDataFor = useCallback((type: CardType): ItemData => {
     switch (type) {
+      case "character":
+        return {
+          name: "",
+          description: "",
+          traits: [],
+          image_url: "",
+          source_comic: "",
+        } as CharacterData;
+      case "story":
+        return {
+          title: "",
+          slides: [],
+        } as StorySlideData;
       case "project":
         return {
           field1: "",
@@ -343,7 +325,7 @@ export default function CopilotKitPage() {
       case "chart":
         return { field1: [], field1_id: 0 } as ChartData;
       default:
-        return { content: "" } as NoteData;
+        return { field1: "" } as NoteData;
     }
   }, []);
 
@@ -698,7 +680,7 @@ export default function CopilotKitPage() {
     ],
     handler: ({ value, itemId }: { value: string; itemId: string }) => {
       updateItemData(itemId, (prev) => {
-        const anyPrev = prev;
+        const anyPrev = prev as { field1?: string };
         if (typeof anyPrev.field1 === "string") {
           return { ...anyPrev, field1: value } as ItemData;
         }
@@ -858,7 +840,7 @@ export default function CopilotKitPage() {
     description: "Create a new item.",
     available: "remote",
     parameters: [
-      { name: "type", type: "string", required: true, description: "One of: project, entity, note, chart." },
+      { name: "type", type: "string", required: true, description: "One of: project, entity, note, chart, character." },
       { name: "name", type: "string", required: false, description: "Optional item name." },
     ],
     handler: ({ type, name }: { type: string; name?: string }) => {
@@ -899,409 +881,135 @@ export default function CopilotKitPage() {
     },
   });
 
-  // Google Sheets Integration Actions
-  const [showSheetModal, setShowSheetModal] = useState<boolean>(false);
-  const [isImporting, setIsImporting] = useState<boolean>(false);
-  const [importError, setImportError] = useState<string>("");
-  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
-  const [selectedSheetName, setSelectedSheetName] = useState<string>("");
-  const [isCreatingSheet, setIsCreatingSheet] = useState<boolean>(false);
-  const [newSheetTitle, setNewSheetTitle] = useState<string>("");
-  const [showFormatWarning, setShowFormatWarning] = useState<boolean>(false);
-  const [formatWarningDetails, setFormatWarningDetails] = useState<{
-    sheetId: string;
-    sheetName?: string;
-    existingFormat: string;
-    canvasFormat: string;
-  } | null>(null);
-
-  const fetchAvailableSheets = async (sheetId: string) => {
-    try {
-      // Extract sheet ID from URL if needed
-      let cleanSheetId = sheetId.trim();
-      if (cleanSheetId.includes("/spreadsheets/d/")) {
-        const start = cleanSheetId.indexOf("/spreadsheets/d/") + "/spreadsheets/d/".length;
-        const end = cleanSheetId.indexOf("/", start);
-        cleanSheetId = cleanSheetId.substring(start, end === -1 ? undefined : end);
-      }
-
-      setImportError("");
-      
-      // Make API call to list available sheets
-      const response = await fetch('/api/sheets/list', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sheet_id: cleanSheetId }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const sheetNames = result.sheet_names || [];
-        setAvailableSheets(sheetNames);
-        if (sheetNames.length > 0) {
-          setSelectedSheetName(""); // Default to first sheet
-        }
-      } else {
-        const error = await response.json();
-        setImportError(`Failed to list sheets: ${error.error}`);
-      }
-      
-    } catch (error) {
-      console.error('Error fetching sheets:', error);
-      setImportError("Failed to fetch available sheets");
-    }
-  };
-
-  const importFromSheet = async (sheetId: string, sheetName?: string, forceImport = false) => {
-    if (!sheetId.trim()) {
-      setImportError("Please enter a valid Sheet ID");
-      return;
-    }
-
-    setIsImporting(true);
-    setImportError("");
-
-    try {
-      // Extract sheet ID from URL if needed
-      let cleanSheetId = sheetId.trim();
-      if (cleanSheetId.includes("/spreadsheets/d/")) {
-        const start = cleanSheetId.indexOf("/spreadsheets/d/") + "/spreadsheets/d/".length;
-        const end = cleanSheetId.indexOf("/", start);
-        cleanSheetId = cleanSheetId.substring(start, end === -1 ? undefined : end);
-      }
-
-      // Check for format compatibility if we have existing canvas data and not forcing import
-      if (!forceImport && viewState.items && viewState.items.length > 0) {
-        // Get a preview of what the sheet contains
-        try {
-          const previewResponse = await fetch('/api/sheets/import', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              sheet_id: cleanSheetId,
-              sheet_name: sheetName || selectedSheetName || undefined,
-              preview_only: true
-            }),
-          });
-
-          if (previewResponse.ok) {
-            const previewResult = await previewResponse.json();
-            
-            // Check if the sheet has a different format than canvas
-            const hasCanvasFormat = viewState.items.some(item => 
-              item.type && ['project', 'entity', 'note', 'chart'].includes(item.type)
-            );
-            
-            const sheetHasData = previewResult.data && previewResult.data.items && previewResult.data.items.length > 0;
-            
-            if (hasCanvasFormat && sheetHasData) {
-              // Show format warning
-              setFormatWarningDetails({
-                sheetId: cleanSheetId,
-                sheetName: sheetName || selectedSheetName || undefined,
-                existingFormat: `${previewResult.data.items.length} items detected in sheet`,
-                canvasFormat: `${viewState.items.length} items currently in canvas`
-              });
-              setShowFormatWarning(true);
-              setIsImporting(false);
-              return;
-            }
-          }
-        } catch (previewError) {
-          console.warn("Could not preview sheet format:", previewError);
-          // Continue with normal import if preview fails
-        }
-      }
-
-      // Make direct API call to backend for importing
-      const response = await fetch('/api/sheets/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          sheet_id: cleanSheetId,
-          sheet_name: sheetName || selectedSheetName || undefined
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || errorData.error || 'Failed to import sheet');
-      }
-
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        // Update the canvas state with imported data
-        console.log("Import result data:", result.data);
-        setState(result.data);
-        setShowSheetModal(false);
-        setImportError("");
-        console.log("Successfully imported sheet data:", result.message);
-      } else {
-        throw new Error(result.message || 'Failed to process sheet data');
-      }
-      
-    } catch (error) {
-      console.error('Import error:', error);
-      setImportError(error instanceof Error ? error.message : 'Failed to import sheet');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const createNewSheet = async (title: string) => {
-    if (!title.trim()) {
-      setImportError("Please enter a valid sheet title");
-      return;
-    }
-
-    setIsCreatingSheet(true);
-    setImportError("");
-
-    try {
-      const response = await fetch('/api/sheets/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: title.trim() }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || errorData.error || 'Failed to create sheet');
-      }
-
-      const result = await response.json();
-      console.log("Create sheet result:", result);
-      
-      if (result.success) {
-        const sheetId = result.sheet_id;
-        const sheetUrl = result.sheet_url;
-        
-        if (!sheetId) {
-          console.warn("Sheet creation succeeded but no sheet_id returned");
-          setImportError("Sheet was created but ID not returned. Check your Google Drive.");
-          return;
-        }
-        
-        // If we have existing items, sync them to the new sheet first, then set up for bi-directional sync
-        if (viewState.items && viewState.items.length > 0) {
-          try {
-            const syncResponse = await fetch('/api/sheets/sync', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                canvas_state: viewState,
-                sheet_id: sheetId,
-              }),
-            });
-
-            if (syncResponse.ok) {
-              console.log("Successfully synced existing items to new sheet");
-              // Set the newly created sheet as the sync target and update title/description
-              setState((prev) => ({
-                ...prev,
-                items: prev?.items || [],
-                itemsCreated: prev?.itemsCreated || 0,
-                globalTitle: result.title || title.trim(),
-                globalDescription: `Connected to Google Sheet: ${result.title || title.trim()}`,
-                syncSheetId: sheetId,
-                syncSheetName: "Sheet1"
-              }));
-            } else {
-              console.warn("Failed to sync existing items to new sheet");
-            }
-          } catch (syncError) {
-            console.warn("Failed to sync existing items to new sheet:", syncError);
-          }
-        } else {
-          // No existing items - import the empty sheet structure into canvas
-          try {
-            const importResponse = await fetch('/api/sheets/import', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ 
-                sheet_id: sheetId,
-                sheet_name: "Sheet1"
-              }),
-            });
-
-            if (importResponse.ok) {
-              const importResult = await importResponse.json();
-              if (importResult.success && importResult.data) {
-                // Update canvas state with the imported (likely empty) structure and set title/description
-                setState({
-                  ...importResult.data,
-                  globalTitle: result.title || title.trim(),
-                  globalDescription: `Connected to Google Sheet: ${result.title || title.trim()}`,
-                  syncSheetId: sheetId,
-                  syncSheetName: "Sheet1"
-                });
-                console.log("Successfully imported new sheet structure into canvas");
-              }
-            }
-          } catch (importError) {
-            console.warn("Failed to import new sheet structure:", importError);
-            // Fallback: just set sync info and update title/description
-            setState((prev) => ({ 
-              ...initialState,
-              ...prev,
-              globalTitle: result.title || title.trim(),
-              globalDescription: `Connected to Google Sheet: ${result.title || title.trim()}`,
-              syncSheetId: sheetId,
-              syncSheetName: "Sheet1"
-            }));
-          }
-        }
-        
-        setShowSheetModal(false);
-        setImportError("");
-        console.log("Successfully created new sheet:", result.message);
-        
-        // Show success message or provide link
-        if (sheetUrl) {
-          window.open(sheetUrl, '_blank');
-        }
-        
-      } else {
-        throw new Error('Failed to create sheet: ' + (result.error || result.message || 'Unknown error'));
-      }
-      
-    } catch (error) {
-      console.error('Create sheet error:', error);
-      setImportError(error instanceof Error ? error.message : 'Failed to create sheet');
-    } finally {
-      setIsCreatingSheet(false);
-    }
-  };
-
+  // Character actions
   useCopilotAction({
-    name: "openSheetSelectionModal",
-    description: "Open modal for selecting Google Sheets.",
-    available: "remote",
-    parameters: [],
-    handler: () => {
-      setShowSheetModal(true);
-      return "sheet_modal_opened";
-    },
-  });
-
-  useCopilotAction({
-    name: "setSyncSheetId",
-    description: "Set the Google Sheet ID for auto-sync.",
+    name: "setCharacterName",
+    description: "Set character name.",
     available: "remote",
     parameters: [
-      { name: "sheetId", type: "string", required: true, description: "The Google Sheet ID to sync with." },
+      { name: "name", type: "string", required: true, description: "Character name." },
+      { name: "itemId", type: "string", required: true, description: "Character id." },
     ],
-    handler: ({ sheetId }: { sheetId: string }) => {
-      setState((prev) => ({ 
-        ...initialState, 
-        ...prev, 
-        syncSheetId: sheetId 
-      }));
-      return `sync_sheet_set:${sheetId}`;
+    handler: ({ name, itemId }: { name: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const cd = prev as CharacterData;
+        if (Object.prototype.hasOwnProperty.call(cd, "name")) {
+          return { ...cd, name } as CharacterData;
+        }
+        return prev;
+      });
     },
   });
 
   useCopilotAction({
-    name: "searchUserSheets",
-    description: "Search user's Google Sheets and display them for selection.",
+    name: "setCharacterDescription",
+    description: "Set character description.",
     available: "remote",
-    parameters: [],
-    handler: () => {
-      // This will be handled by the agent using GOOGLESHEETS_SEARCH_SPREADSHEETS
-      return "searching_sheets";
+    parameters: [
+      { name: "description", type: "string", required: true, description: "Character description." },
+      { name: "itemId", type: "string", required: true, description: "Character id." },
+    ],
+    handler: ({ description, itemId }: { description: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const cd = prev as CharacterData;
+        if (Object.prototype.hasOwnProperty.call(cd, "description")) {
+          return { ...cd, description } as CharacterData;
+        }
+        return prev;
+      });
     },
   });
 
   useCopilotAction({
-    name: "syncCanvasToSheets",
-    description: "Manually sync current canvas state to Google Sheets.",
+    name: "addCharacterTrait",
+    description: "Add a character trait.",
+    available: "remote",
+    parameters: [
+      { name: "trait", type: "string", required: true, description: "Trait to add." },
+      { name: "itemId", type: "string", required: true, description: "Character id." },
+    ],
+    handler: ({ trait, itemId }: { trait: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const cd = prev as CharacterData;
+        if (Object.prototype.hasOwnProperty.call(cd, "traits")) {
+          const currentTraits = cd.traits ?? [];
+          if (!currentTraits.includes(trait)) {
+            return { ...cd, traits: [...currentTraits, trait] } as CharacterData;
+          }
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "removeCharacterTrait",
+    description: "Remove a character trait.",
+    available: "remote",
+    parameters: [
+      { name: "trait", type: "string", required: true, description: "Trait to remove." },
+      { name: "itemId", type: "string", required: true, description: "Character id." },
+    ],
+    handler: ({ trait, itemId }: { trait: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const cd = prev as CharacterData;
+        if (Object.prototype.hasOwnProperty.call(cd, "traits")) {
+          const currentTraits = cd.traits ?? [];
+          return { ...cd, traits: currentTraits.filter(t => t !== trait) } as CharacterData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setCharacterImageUrl",
+    description: "Set character image URL.",
+    available: "remote",
+    parameters: [
+      { name: "image_url", type: "string", required: true, description: "Image URL." },
+      { name: "itemId", type: "string", required: true, description: "Character id." },
+    ],
+    handler: ({ image_url, itemId }: { image_url: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const cd = prev as CharacterData;
+        if (Object.prototype.hasOwnProperty.call(cd, "image_url")) {
+          return { ...cd, image_url } as CharacterData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  useCopilotAction({
+    name: "setCharacterSourceComic",
+    description: "Set character source comic.",
+    available: "remote",
+    parameters: [
+      { name: "source_comic", type: "string", required: true, description: "Source comic." },
+      { name: "itemId", type: "string", required: true, description: "Character id." },
+    ],
+    handler: ({ source_comic, itemId }: { source_comic: string; itemId: string }) => {
+      updateItemData(itemId, (prev) => {
+        const cd = prev as CharacterData;
+        if (Object.prototype.hasOwnProperty.call(cd, "source_comic")) {
+          return { ...cd, source_comic } as CharacterData;
+        }
+        return prev;
+      });
+    },
+  });
+
+  // Comic upload action - uses CopilotKit backend tools
+  useCopilotAction({
+    name: "processUploadedComic",
+    description: "Process the most recently uploaded comic file and extract characters from it. Use this when the user wants to process an uploaded file.",
     available: "remote",
     parameters: [],
     handler: async () => {
-      if (!viewState.syncSheetId) {
-        return "No sync sheet ID configured. Please set a sheet ID first.";
-      }
-      
-      if (!viewState.items || viewState.items.length === 0) {
-        return "No items to sync. Canvas is empty.";
-      }
-
-      try {
-        console.log(`[MANUAL-SYNC] Syncing ${viewState.items.length} items to sheet: ${viewState.syncSheetId}`);
-        
-        const response = await fetch('/api/sheets/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            canvas_state: viewState,
-            sheet_id: viewState.syncSheetId,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          return `✅ Successfully synced ${viewState.items.length} items to Google Sheets: ${result.message}`;
-        } else {
-          const error = await response.json();
-          return `❌ Failed to sync to Google Sheets: ${error.error}`;
-        }
-      } catch (error) {
-        return `❌ Exception during manual sync: ${error}`;
-      }
-    },
-  });
-
-  useCopilotAction({
-    name: "forceCanvasToSheetsSync",
-    description: "Force sync current canvas state to a specific Google Sheet, even if syncSheetId is not set.",
-    available: "remote",
-    parameters: [
-      { name: "sheetId", type: "string", required: true, description: "Google Sheet ID to sync to." },
-    ],
-    handler: async ({ sheetId }: { sheetId: string }) => {
-      if (!viewState.items || viewState.items.length === 0) {
-        return "No items to sync. Canvas is empty.";
-      }
-
-      try {
-        console.log(`[FORCE-SYNC] Syncing ${viewState.items.length} items to sheet: ${sheetId}`);
-        
-        const response = await fetch('/api/sheets/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            canvas_state: viewState,
-            sheet_id: sheetId,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          return `✅ Successfully force-synced ${viewState.items.length} items to Google Sheets: ${result.message}`;
-        } else {
-          const error = await response.json();
-          return `❌ Failed to force-sync to Google Sheets: ${error.error}`;
-        }
-      } catch (error) {
-        return `❌ Exception during force-sync: ${error}`;
-      }
+      // This will be handled by the backend tool process_uploaded_comic
+      // The actual file processing happens on the server side
+      return "Processing the most recently uploaded comic file...";
     },
   });
 
@@ -1317,33 +1025,6 @@ export default function CopilotKitPage() {
     "focus:shadow-accent focus:placeholder:text-accent/65 focus:text-accent",
   );
 
-  const sheetModalInputClasses = cn(
-    "w-full rounded-xl border border-border/80 bg-background px-3.5 py-2.5 text-sm text-foreground shadow-xs transition-all",
-    "placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none",
-    "disabled:cursor-not-allowed disabled:opacity-60"
-  );
-
-  const handleCloseSheetsModal = useCallback(() => {
-    if (isImporting || isCreatingSheet) {
-      return;
-    }
-    setShowSheetModal(false);
-    setImportError("");
-    setAvailableSheets([]);
-    setSelectedSheetName("");
-    setNewSheetTitle("");
-  }, [
-    isCreatingSheet,
-    isImporting,
-    setAvailableSheets,
-    setImportError,
-    setNewSheetTitle,
-    setSelectedSheetName,
-    setShowSheetModal,
-  ]);
-
-  const [sheetId, setSheetId] = useState<string>('')
-
   return (
     <div
       style={{ "--copilot-kit-primary-color": "#2563eb" } as CopilotKitCSSProperties}
@@ -1356,6 +1037,53 @@ export default function CopilotKitPage() {
           <div className="h-full flex flex-col align-start w-full shadow-lg rounded-2xl border border-sidebar-border overflow-hidden">
             {/* Chat Header */}
             <AppChatHeader />
+            {/* File Upload Button */}
+            <div className="p-3 border-b border-sidebar-border">
+              <input
+                type="file"
+                accept=".pdf,.txt"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      // Upload the file to get a file path
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      
+                      const uploadResponse = await fetch('/api/upload-comic', {
+                        method: 'POST',
+                        body: formData,
+                      });
+                      
+                      if (uploadResponse.ok) {
+                        const uploadResult = await uploadResponse.json();
+                        const filePath = uploadResult.filePath;
+                        
+                        if (filePath) {
+                          alert(`File uploaded successfully! You can now ask the AI to process it by typing "Process the uploaded comic" or clicking the suggestion.`);
+                        } else {
+                          alert("File uploaded but no file path returned.");
+                        }
+                      } else {
+                        alert(`Error uploading file: ${uploadResponse.statusText}`);
+                      }
+                    } catch (error) {
+                      alert(`Error processing file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                  }
+                }}
+                className="hidden"
+                id="chat-file-upload"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => document.getElementById('chat-file-upload')?.click()}
+              >
+                📁 Upload Comic File
+              </Button>
+            </div>
             {/* Chat Content - conditionally rendered to avoid duplicate rendering */}
             {isDesktop && (
               <CopilotChat
@@ -1382,6 +1110,18 @@ export default function CopilotKitPage() {
                     title: "Add a Chart",
                     message: "Create a new chart.",
                   },
+                  {
+                    title: "Add a Character",
+                    message: "Create a new character.",
+                  },
+                  {
+                    title: "Add a Story",
+                    message: "Create a new story with slides and audio.",
+                  },
+                  {
+                    title: "Process Uploaded Comic",
+                    message: "Process the most recently uploaded comic file and extract characters from it.",
+                  },
                 ]}
               />
             )}
@@ -1392,10 +1132,10 @@ export default function CopilotKitPage() {
           <div ref={scrollAreaRef} className="relative overflow-auto size-full px-4 sm:px-8 md:px-10 py-4">
             <div className={cn(
               "relative mx-auto max-w-7xl h-full min-h-8",
-              (showJsonView || (viewState.items ?? []).length === 0) && "flex flex-col",
+              (showJsonView || showStoryView || (viewState.items ?? []).length === 0) && "flex flex-col",
             )}>
-              {/* Global Title & Description (hidden in JSON view) */}
-              {!showJsonView && (
+              {/* Global Title & Description (hidden in JSON and Story view) */}
+              {!showJsonView && !showStoryView && (
                 <motion.div style={{ opacity: headerOpacity }} className="sticky top-0 mb-6">
                   <input
                     ref={titleInputRef}
@@ -1404,7 +1144,7 @@ export default function CopilotKitPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setState((prev) => ({ ...(prev ?? initialState), globalTitle: e.target.value }))
                     }
-                    placeholder="Canvas title..."
+                    placeholder="Tiny Legends"
                     className={cn(titleClasses, "text-2xl font-semibold")}
                   />
                   <input
@@ -1414,13 +1154,18 @@ export default function CopilotKitPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setState((prev) => ({ ...(prev ?? initialState), globalDescription: e.target.value }))
                     }
-                    placeholder="Canvas description..."
+                    placeholder="Bring your favorite comic characters to life and create epic stories that soar beyond imagination"
                     className={cn(titleClasses, "mt-2 text-sm leading-6 resize-none overflow-hidden")}
                   />
                 </motion.div>
               )}
               
-              {(viewState.items ?? []).length === 0 ? (
+              {showStoryView ? (
+                <StoryView 
+                  stories={(viewState.items ?? []).filter(item => item.type === "story")} 
+                  onClose={() => setShowStoryView(false)} 
+                />
+              ) : (viewState.items ?? []).length === 0 ? (
                 <EmptyState className="flex-1">
                   <div className="mx-auto max-w-lg text-center">
                     <h2 className="text-lg font-semibold text-foreground">Nothing here yet</h2>
@@ -1472,328 +1217,47 @@ export default function CopilotKitPage() {
               )}
             </div>
           </div>
-          {(viewState.items ?? []).length > 0 ? (
-            <div className={cn(
-              "absolute left-1/2 -translate-x-1/2 bottom-4",
-              "inline-flex rounded-lg shadow-lg bg-card",
-              "[&_button]:bg-card [&_button]:w-22 md:[&_button]:h-10",
-              "[&_button]:shadow-none! [&_button]:hover:bg-accent",
-              "[&_button]:hover:border-accent [&_button]:hover:text-accent",
-              "[&_button]:hover:bg-accent/10!",
-            )}>
-              <NewItemMenu
-                onSelect={(t: CardType) => addItem(t)}
-                align="center"
-                className="rounded-r-none border-r-0 peer"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className={cn(
-                  "gap-1.25 text-base font-semibold rounded-none border-r-0",
-                  "peer-hover:border-l-accent!",
-                )}
-                onClick={() => {
-                  setShowSheetModal(true);
-                }}
-              >
-                📊 Sheets
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className={cn(
-                  "gap-1.25 text-base font-semibold rounded-l-none",
-                )}
-                onClick={() => setShowJsonView((v) => !v)}
-              >
-                {showJsonView
-                  ? "Canvas"
-                  : <>JSON</>
-                }
-              </Button>
-            </div>
-          ) : null}
         </main>
-      </div>
-      <div className="md:hidden">
-        {/* Mobile Chat Popup - conditionally rendered to avoid duplicate rendering */}
-        {!isDesktop && (
-          <CopilotPopup
-            Header={PopupHeader}
-            labels={{
-              title: "Agent",
-              initial:
-                "👋 Share a brief or ask to extract fields. Changes will sync with the canvas in real time.",
-            }}
-            suggestions={[
-              {
-                title: "Add a Project",
-                message: "Create a new project.",
-              },
-              {
-                title: "Add an Entity",
-                message: "Create a new entity.",
-              },
-              {
-                title: "Add a Note",
-                message: "Create a new note.",
-              },
-              {
-                title: "Add a Chart",
-                message: "Create a new chart.",
-              },
-            ]}
-          />
-        )}
-      </div>
-
-      {/* Google Sheets Selection Modal */}
-      {showSheetModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background/75 px-4 py-10 backdrop-blur-sm sm:px-6"
-          onClick={handleCloseSheetsModal}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="sheets-modal-title"
-        >
-          <div
-            className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 border-b border-border/80 bg-muted px-6 py-5 sm:px-8">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">Connections</p>
-                <h2 id="sheets-modal-title" className="mt-1 text-lg font-semibold">Google Sheets</h2>
-                <p className="text-sm text-muted-foreground">Sync the canvas with a Sheet—create a new one or import an existing source.</p>
-              </div>
-              <button
-                onClick={handleCloseSheetsModal}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-                disabled={isImporting || isCreatingSheet}
-                aria-label="Close sheets modal"
+        {(viewState.items ?? []).length > 0 ? (
+          <div className={cn(
+            "absolute left-1/2 -translate-x-1/2 bottom-4",
+            "inline-flex rounded-lg shadow-lg bg-card",
+            "[&_button]:bg-card [&_button]:w-22 md:[&_button]:h-10",
+            "[&_button]:shadow-none! [&_button]:hover:bg-accent",
+          )}>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "gap-1.25 text-base font-semibold rounded-l-none",
+                "peer-hover:border-l-accent!",
+              )}
+              onClick={() => setShowJsonView((v) => !v)}
+            >
+              {showJsonView
+                ? "Canvas"
+                : <>JSON</>
+              }
+            </Button>
+            {(viewState.items ?? []).filter(item => item.type === "story").length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  "gap-1.25 text-base font-semibold rounded-r-none border-l-0",
+                  showStoryView ? "bg-accent text-accent-foreground" : "",
+                )}
+                onClick={() => setShowStoryView((v) => !v)}
               >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="px-6 pb-6 sm:px-8 sm:pb-8">
-              <div className="mt-6 space-y-6">
-                <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/60 px-5 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-medium text-foreground">Create a fresh Sheet</label>
-                    <span className="text-xs font-medium text-muted-foreground/80">Sync starts immediately</span>
-                  </div>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="E.g. Product Roadmap"
-                      className={sheetModalInputClasses}
-                      value={newSheetTitle}
-                      onChange={(e) => setNewSheetTitle(e.target.value)}
-                      disabled={isImporting || isCreatingSheet}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newSheetTitle.trim()) {
-                          createNewSheet(newSheetTitle);
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        if (newSheetTitle.trim()) {
-                          createNewSheet(newSheetTitle);
-                        }
-                      }}
-                      className="w-full"
-                      variant="secondary"
-                      disabled={isImporting || isCreatingSheet || !newSheetTitle.trim()}
-                    >
-                      {isCreatingSheet ? "Creating…" : "Create & Connect"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-4 rounded-2xl border border-dashed border-border/70 bg-card px-5 py-5">
-                  <div className="text-sm text-foreground">
-                    <span className="font-medium">Import an existing Sheet</span>
-                    <p className="mt-1 text-xs text-muted-foreground">Paste a Sheet link or ID. We’ll hydrate the canvas and keep the connection live.</p>
-                  </div>
-
-                  {importError && (
-                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                      {importError}
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Sheet ID or https://docs.google.com/spreadsheets/d/..."
-                      className={sheetModalInputClasses}
-                      id="sheet-id-input"
-                      disabled={isImporting || isCreatingSheet}
-                      value={sheetId}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSheetId(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const input = e.target as HTMLInputElement;
-                          importFromSheet(input.value);
-                        }
-                      }}
-                    />
-
-                    <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-                      <Button
-                        onClick={() => {
-                          const input = document.getElementById("sheet-id-input") as HTMLInputElement;
-                          if (input?.value) {
-                            fetchAvailableSheets(input.value);
-                          }
-                        }}
-                        variant="outline"
-                        className="flex-1"
-                        disabled={isImporting || isCreatingSheet || !sheetId}
-                      >
-                        List worksheets
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          const input = document.getElementById("sheet-id-input") as HTMLInputElement;
-                          if (input) {
-                            importFromSheet(input.value);
-                          }
-                        }}
-                        className="flex-1"
-                        variant="secondary"
-                        disabled={isImporting || isCreatingSheet || !availableSheets.length}
-                      >
-                        {isImporting ? "Importing…" : "Import to Canvas"}
-                      </Button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-foreground">
-                        Sheet tab
-                        {availableSheets.length > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                            {availableSheets.length} found
-                          </span>
-                        )}
-                      </label>
-                      <select
-                        value={selectedSheetName}
-                        onChange={(e) => setSelectedSheetName(e.target.value)}
-                        className={cn(sheetModalInputClasses, "pr-8")}
-                        disabled={isImporting || isCreatingSheet}
-                      >
-                        <option value="">
-                          {availableSheets.length > 0 ? "Use first worksheet" : "List worksheets to choose a tab"}
-                        </option>
-                        {availableSheets.map((sheetName, index) => (
-                          <option key={index} value={sheetName}>
-                            {sheetName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-border/70 bg-muted px-5 py-4 text-xs text-muted-foreground">
-                  <p><span className="font-medium text-foreground">Heads up:</span> New Sheets open in a new tab. If you import, ensure Composio has access to the document.</p>
-                  <p className="mt-2">We automatically map rows into projects, entities, notes, or charts so your canvas stays structured.</p>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <Button
-                    variant="outline"
-                    className="sm:w-fit"
-                    onClick={handleCloseSheetsModal}
-                    disabled={isImporting || isCreatingSheet}
-                  >
-                    Close
-                  </Button>
-                  {viewState.syncSheetId && (
-                    <span className="text-xs text-muted-foreground">
-                      Currently linked to <span className="font-medium text-foreground">{viewState.syncSheetName || "Sheet1"}</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+                📚 Story
+              </Button>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Format Warning Modal */}
-      {showFormatWarning && formatWarningDetails && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 px-4 py-8 backdrop-blur-sm sm:px-6">
-          <div className="relative w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl sm:p-7">
-            <div className="flex items-start justify-between gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-destructive/80">Import check</p>
-                <h2 className="mt-1 text-lg font-semibold text-destructive">Format mismatch</h2>
-                <p className="text-sm text-destructive/80">Replacing your canvas will overwrite existing cards with what’s in the Sheet.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowFormatWarning(false);
-                  setFormatWarningDetails(null);
-                }}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-destructive/70 transition-colors hover:border-destructive/40 hover:text-destructive"
-                aria-label="Dismiss format warning"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-5">
-              <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                <p className="font-medium">Sheet details</p>
-                <div className="mt-2 space-y-1 text-xs">
-                  <p><span className="font-semibold uppercase tracking-wide">Sheet</span>: {formatWarningDetails.existingFormat}</p>
-                  <p><span className="font-semibold uppercase tracking-wide">Canvas</span>: {formatWarningDetails.canvasFormat}</p>
-                </div>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Importing will completely replace your current canvas data with the sheet contents. Your existing cards will be lost unless they’re saved elsewhere.
-              </p>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                <Button
-                  onClick={() => {
-                    setShowFormatWarning(false);
-                    const details = formatWarningDetails;
-                    setFormatWarningDetails(null);
-                    // Force import despite format mismatch
-                    importFromSheet(details.sheetId, details.sheetName, true);
-                  }}
-                  variant="destructive"
-                  className="flex-1"
-                >
-                  Replace canvas with sheet
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowFormatWarning(false);
-                    setFormatWarningDetails(null);
-                  }}
-                  className="flex-1"
-                >
-                  Keep current canvas
-                </Button>
-              </div>
-
-              <div className="rounded-2xl border border-border/70 bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-                <p className="font-medium text-foreground">Tip</p>
-                <p className="mt-1">Consider creating a new Sheet or exporting your canvas JSON before importing if you might need to roll back.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }
+
+
+

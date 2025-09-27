@@ -10,7 +10,7 @@ export interface LinkItem {
   url: string;
 }
 
-export type CardType = "project" | "entity" | "note" | "chart";
+export type CardType = "project" | "entity" | "note" | "chart" | "character" | "story";
 
 export interface ProjectData {
   field1: string; // text
@@ -37,12 +37,31 @@ export interface ChartMetric {
   value: number | ""; // 0..100
 }
 
+export interface CharacterData {
+  name: string;
+  description: string;
+  traits: string[];
+  image_url: string;
+  source_comic: string;
+}
+
+export interface StorySlideData {
+  title: string;
+  slides: {
+    id: string;
+    imageUrl: string;
+    audioUrl?: string;
+    caption?: string;
+    duration?: number; // in seconds
+  }[];
+}
+
 export interface ChartData {
   field1: ChartMetric[]; // metrics
   field1_id: number; // id counter
 }
 
-export type ItemData = ProjectData | EntityData | NoteData | ChartData;
+export type ItemData = ProjectData | EntityData | NoteData | ChartData | CharacterData | StorySlideData;
 
 export interface Item {
   id: string;
@@ -58,8 +77,6 @@ export interface AgentState {
   globalDescription: string;
   lastAction?: string;
   itemsCreated: number;
-  syncSheetId?: string; // Google Sheet ID for auto-sync
-  syncSheetName?: string; // Google Sheet name that was imported from
 }
 
 

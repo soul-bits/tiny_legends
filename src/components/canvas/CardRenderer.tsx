@@ -4,8 +4,10 @@ import { cn } from "@/lib/utils";
 import { X, Plus } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Progress } from "@/components/ui/progress";
-import type { ChartData, EntityData, Item, ItemData, NoteData, ProjectData } from "@/lib/canvas/types";
+import type { ChartData, CharacterData, EntityData, Item, ItemData, NoteData, ProjectData, StorySlideData } from "@/lib/canvas/types";
 import { chartAddField1Metric, chartRemoveField1Metric, chartSetField1Label, chartSetField1Value, projectAddField4Item, projectRemoveField4Item, projectSetField4ItemDone, projectSetField4ItemText } from "@/lib/canvas/updates";
+import CharacterCard from "./CharacterCard";
+import StorySlide from "./StorySlide";
 
 export function CardRenderer(props: {
   item: Item;
@@ -183,7 +185,33 @@ export function CardRenderer(props: {
       </div>
     );
   }
+  if (item.type === "character") {
+    const d = item.data as CharacterData;
+    const updateCharacterData = (updater: (prev: CharacterData) => CharacterData) => {
+      onUpdateData((prev) => updater(prev as CharacterData));
+    };
+    return (
+      <CharacterCard 
+        data={d} 
+        onUpdateData={updateCharacterData}
+        isEditing={true}
+      />
+    );
+  }
 
+  if (item.type === "story") {
+    const d = item.data as StorySlideData;
+    const updateStoryData = (updater: (prev: StorySlideData) => StorySlideData) => {
+      onUpdateData((prev) => updater(prev as StorySlideData));
+    };
+    return (
+      <StorySlide 
+        data={d} 
+        onUpdateData={updateStoryData}
+        isEditing={true}
+      />
+    );
+  }
   const e = item.data as EntityData;
   const setEntity = (partial: Partial<EntityData>) => onUpdateData((prev) => ({ ...(prev as EntityData), ...partial }));
   return (

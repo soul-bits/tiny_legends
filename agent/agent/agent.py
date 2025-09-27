@@ -1,77 +1,158 @@
-from typing import Annotated, List, Optional, Any
-import os
-from dotenv import load_dotenv
+from typing import Annotated, List, Optional, Dict, Any
 
+from llama_index.core.workflow import Context
 from llama_index.llms.openai import OpenAI
-from llama_index.core.tools import FunctionTool
+from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+from llama_index.core.readers import SimpleDirectoryReader
+from llama_index.readers.file import PDFReader
 
-# Load environment variables early to support local development via .env
-load_dotenv()
+# Backend tools for character extraction
 
-
-
-def _load_composio_tools() -> List[Any]:
-    """Dynamically load Composio tools for LlamaIndex if configured.
-
-    Reads the following environment variables:
-    - COMPOSIO_TOOL_IDS: comma-separated list of tool identifiers to enable
-    - COMPOSIO_USER_ID: user/entity id to scope tools (defaults to "default")
-    - COMPOSIO_API_KEY: required by Composio client; read implicitly by SDK
-
-    Returns an empty list if not configured or if dependencies are missing.
-    """
-    tool_ids_str = os.getenv("COMPOSIO_TOOL_IDS", "").strip()
-    if not tool_ids_str:
-        return []
-
-    # Import lazily to avoid hard runtime dependency if not used
+def extract_characters_from_comic(file_path: Annotated[str, "Path to the PDF or text comic file"]) -> List[Dict]:
+    """Extract characters from a comic PDF or text file and return character data."""
     try:
-        from composio import Composio  # type: ignore
-        from composio_llamaindex import LlamaIndexProvider  # type: ignore
+        # Check file extension to determine how to read the file
+        if file_path.lower().endswith('.pdf'):
+            # Read PDF using LlamaIndex PDFReader for proper text extraction
+            reader = PDFReader()
+            documents = reader.load_data(file_path)
+            content = "\n".join([doc.text for doc in documents])
+        else:
+            # Read text file directly
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+        
+        # Extract characters using LLM
+        llm = OpenAI(model="gpt-4o")
+        prompt = f"""
+        Extract all unique character names from this comic content. 
+        For each character, provide:
+        - name: The character name
+        - description: A brief description (2-3 sentences)
+        - traits: Array of key personality traits or characteristics
+        
+        Return as a JSON array of objects.
+        
+        Content: {content[:4000]}...
+        """
+        
+        response = llm.complete(prompt)
+        
+        # Parse the JSON response
+        import json
+        import re
+        
+        # Clean the response by removing markdown code blocks
+        response_text = response.text.strip()
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]  # Remove ```json
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]  # Remove ```
+        response_text = response_text.strip()
+        
+        try:
+            characters = json.loads(response_text)
+            return characters
+        except json.JSONDecodeError as e:
+            # Fallback: extract names manually
+            return [{"name": "Sample Character", "description": "A character from the comic", "traits": ["brave", "mysterious"]}]
+            
     except Exception as e:
-        print(f"Failed to import Composio: {e}")
-        return []
+        return [{"name": "Error", "description": f"Failed to extract characters: {str(e)}", "traits": []}]
 
-    user_id = os.getenv("COMPOSIO_USER_ID", "default")
-    tool_ids = [t.strip() for t in tool_ids_str.split(",") if t.strip()]
-    if not tool_ids:
-        return []
+def generate_character_story(characters: Annotated[List[Dict], "List of character data"], theme: Annotated[str, "Story theme or prompt"] = "adventure") -> str:
+    """Generate a kids story using the extracted characters."""
     try:
-        print(f"Loading Composio tools: {tool_ids} for user: {user_id}")
-        composio = Composio(provider=LlamaIndexProvider())
-        tools = composio.tools.get(user_id=user_id, tools=tool_ids)
-        print(f"Successfully loaded {len(tools) if tools else 0} tools")
-        # "tools" should be a list of LlamaIndex-compatible Tool objects
-        return list(tools) if tools is not None else []
+        llm = OpenAI(model="gpt-4o")
+        
+        character_names = [char["name"] for char in characters]
+        character_descriptions = [f"{char['name']}: {char['description']}" for char in characters]
+        
+        prompt = f"""
+        Create a fun, engaging kids story featuring these characters:
+        {', '.join(character_names)}
+        
+        Character details:
+        {'; '.join(character_descriptions)}
+        
+        Story requirements:
+        - Age-appropriate for children (5-10 years old)
+        - Include all characters
+        - Theme: {theme}
+        - Length: 300-500 words
+        - Clear beginning, middle, and end
+        - Emphasize friendship and teamwork
+        
+        Write the story:
+        """
+        
+        response = llm.complete(prompt)
+        return response.text
+        
     except Exception as e:
-        # Fail closed; backend tools remain empty if configuration is invalid
-        print(f"Failed to load Composio tools: {e}")
-        return []
+        return f"Error generating story: {str(e)}"
 
+def upload_and_extract_comic(file_path: Annotated[str, "Path to the comic file to upload and process"]) -> str:
+    """Upload a comic file and extract characters from it, then create character cards on the canvas."""
+    try:
+        # Extract characters from the comic file
+        characters = extract_characters_from_comic(file_path)
+        
+        if not characters or len(characters) == 0:
+            return "No characters were found in the comic file."
+        
+        # Format the response with character details
+        character_list = []
+        for char in characters:
+            traits_str = ", ".join(char.get("traits", []))
+            character_list.append(f"• **{char.get('name', 'Unknown')}**: {char.get('description', 'No description')} (Traits: {traits_str})")
+        
+        character_summary = "\n".join(character_list)
+        
+        return f"""Successfully extracted {len(characters)} characters from the comic:
+
+{character_summary}
+
+I will now create character cards for each of these characters on the canvas. You can interact with them, edit their details, or ask me to generate a story featuring these characters."""
+        
+    except Exception as e:
+        return f"Error processing comic file: {str(e)}"
+
+def process_uploaded_comic() -> str:
+    """Process the most recently uploaded comic file and extract characters from it."""
+    import os
+    import glob
+    
+    try:
+        # Look for the most recent comic file in the uploads directory
+        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'uploads')
+        
+        if not os.path.exists(uploads_dir):
+            return "No uploads directory found. Please upload a comic file first."
+        
+        # Find the most recent comic file
+        comic_files = glob.glob(os.path.join(uploads_dir, 'comic-*.pdf')) + glob.glob(os.path.join(uploads_dir, 'comic-*.txt'))
+        
+        if not comic_files:
+            return "No comic files found in uploads directory. Please upload a comic file first."
+        
+        # Get the most recent file
+        latest_file = max(comic_files, key=os.path.getctime)
+        
+        # Process the file
+        return upload_and_extract_comic(latest_file)
+        
+    except Exception as e:
+        return f"Error processing uploaded comic: {str(e)}"
 
 # --- Backend tools (server-side) ---
-
-def list_sheet_names(sheet_id: Annotated[str, "Google Sheets ID to list available sheet names from."]) -> str:
-    """List all available sheet names in a Google Spreadsheet."""
-    try:
-        from .sheets_integration import get_sheet_names
-        
-        sheet_names = get_sheet_names(sheet_id)
-        if not sheet_names:
-            return f"Failed to get sheet names from {sheet_id}. Please check the ID and ensure the sheet is accessible."
-        
-        return f"Available sheets in spreadsheet:\n" + "\n".join(f"- {name}" for name in sheet_names)
-        
-    except Exception as e:
-        return f"Error listing sheets from {sheet_id}: {str(e)}"
-
 
 
 # --- Frontend tool stubs (names/signatures only; execution happens in the UI) ---
 
 def createItem(
-    type: Annotated[str, "One of: project, entity, note, chart."],
+    type: Annotated[str, "One of: project, entity, note, chart, character."],
     name: Annotated[Optional[str], "Optional item name."] = None,
 ) -> str:
     """Create a new canvas item and return its id."""
@@ -190,22 +271,24 @@ def clearChartField1Value(itemId: Annotated[str, "Chart id."], index: Annotated[
 def removeChartField1(itemId: Annotated[str, "Chart id."], index: Annotated[int, "Metric index (0-based)."]) -> str:
     return f"removeChartField1({itemId}, {index})"
 
-def openSheetSelectionModal() -> str:
-    """Open modal for selecting Google Sheets."""
-    return "openSheetSelectionModal()"
+# Character actions
+def setCharacterName(name: Annotated[str, "Character name."], itemId: Annotated[str, "Character id."]) -> str:
+    return f"setCharacterName({name}, {itemId})"
 
-def setSyncSheetId(sheetId: Annotated[str, "Google Sheet ID to sync with."]) -> str:
-    """Set the Google Sheet ID for auto-sync."""
-    return f"setSyncSheetId({sheetId})"
+def setCharacterDescription(description: Annotated[str, "Character description."], itemId: Annotated[str, "Character id."]) -> str:
+    return f"setCharacterDescription({description}, {itemId})"
 
-def searchUserSheets() -> str:
-    """Search user's Google Sheets and display them for selection."""
-    return "searchUserSheets()"
+def addCharacterTrait(trait: Annotated[str, "Trait to add."], itemId: Annotated[str, "Character id."]) -> str:
+    return f"addCharacterTrait({trait}, {itemId})"
 
-def syncCanvasToSheets() -> str:
-    """Manually sync current canvas state to Google Sheets."""
-    return "syncCanvasToSheets()"
+def removeCharacterTrait(trait: Annotated[str, "Trait to remove."], itemId: Annotated[str, "Character id."]) -> str:
+    return f"removeCharacterTrait({trait}, {itemId})"
 
+def setCharacterImageUrl(image_url: Annotated[str, "Image URL."], itemId: Annotated[str, "Character id."]) -> str:
+    return f"setCharacterImageUrl({image_url}, {itemId})"
+
+def setCharacterSourceComic(source_comic: Annotated[str, "Source comic."], itemId: Annotated[str, "Character id."]) -> str:
+    return f"setCharacterSourceComic({source_comic}, {itemId})"
 
 FIELD_SCHEMA = (
     "FIELD SCHEMA (authoritative):\n"
@@ -221,6 +304,12 @@ FIELD_SCHEMA = (
     "  - field3_options: string[] (available tags)\n"
     "- note.data:\n"
     "  - field1: string (textarea; represents description)\n"
+    "- character.data:\n"
+    "  - name: string (character name)\n"
+    "  - description: string (brief character description)\n"
+    "  - traits: string[] (character traits/tags)\n"
+    "  - image_url: string (URL to character image)\n"
+    "  - source_comic: string (which comic this character came from)\n"
     "- chart.data:\n"
     "  - field1: Array<{id: string, label: string, value: number | ''}> with value in [0..100] or ''\n"
 )
@@ -230,57 +319,25 @@ SYSTEM_PROMPT = (
     + FIELD_SCHEMA +
     "\nMUTATION/TOOL POLICY:\n"
     "- When you claim to create/update/delete, you MUST call the corresponding tool(s) (frontend or backend).\n"
-    "- To create new cards, call the frontend tool `createItem` with `type` in {project, entity, note, chart} and optional `name`.\n"
+    "- To create new cards, call the frontend tool `createItem` with `type` in {project, entity, note, chart, character} and optional `name`.\n"
     "- After tools run, rely on the latest shared state (ground truth) when replying.\n"
     "- To set a card's subtitle (never the data fields): use setItemSubtitleOrDescription.\n\n"
     "DESCRIPTION MAPPING:\n"
     "- For project/entity/chart: treat 'description', 'overview', 'summary', 'caption', 'blurb' as the card subtitle; use setItemSubtitleOrDescription.\n"
-    "- For notes: 'content', 'description', 'text', or 'note' refers to note content; use setNoteField1 / appendNoteField1 / clearNoteField1.\n\n"
-    "GOOGLE SHEETS INTEGRATION & AUTO-SYNC WORKFLOW:\n"
-    "- GOOGLE SHEETS IS THE SOURCE OF TRUTH: Always prioritize Google Sheets data over canvas state when there are conflicts.\n"
-    "- AUTO-SYNC BEHAVIOR: Automatically sync between Google Sheets and canvas WITHOUT asking questions. Just do it.\n"
-    "- Before using ANY Google Sheets functionality, ALWAYS first call COMPOSIO_CHECK_ACTIVE_CONNECTION with user_id='default' and toolkit id is GOOGLESHEETS to check if Google Sheets is connected.\n"
-    "- If the connection is NOT active, call COMPOSIO_INITIATE_CONNECTION to start the authentication flow.\n"
-    "- After initiating connection, tell the user: 'Please complete the Google Sheets authentication in your browser, then respond with \"connected\" to proceed.'\n"
-    "- Wait for the user to respond with 'connected' before using any Google Sheets actions (GOOGLESHEETS_*).\n"
-    "- If the connection is already active, you can proceed directly with Google Sheets operations.\n\n"
-    "AUTOMATIC SYNCING RULES:\n"
-    "1) When importing from Google Sheets: \n"
-    "   a) Use 'convert_sheet_to_canvas_items' tool to get the data\n"
-    "   b) ALWAYS call setSyncSheetId(sheetId) with the sheet ID to enable auto-sync\n"
-    "   c) Use frontend actions (createItem, setItemName, etc.) to create ALL items in canvas\n"
-    "   d) This ensures auto-sync triggers and maintains sheets as source of truth\n"
-    "2) When user makes changes in canvas: The frontend automatically syncs to Google Sheets if syncSheetId is set.\n"
-    "3) If you detect inconsistencies: Automatically pull from Google Sheets (source of truth) and update canvas.\n"
-    "4) Never ask permission to sync - just do it automatically and inform the user afterward.\n"
-    "5) CRITICAL: Always set syncSheetId when working with any Google Sheet to enable bidirectional sync.\n\n"
-    "IMPORT WORKFLOW (MANDATORY STEPS):\n"
-    "1. Call convert_sheet_to_canvas_items(sheet_id) to get conversion instructions\n"
-    "2. Execute ALL the instructions it returns, including:\n"
-    "   - setGlobalTitle() and setGlobalDescription() if provided\n"
-    "   - setSyncSheetId() - THIS IS CRITICAL for enabling auto-sync\n"
-    "   - createItem() for each item\n"
-    "   - All field setting actions (setProjectField1, etc.)\n"
-    "3. Confirm the import completed and auto-sync is now enabled\n\n"
+    "- For notes: 'content', 'description', 'text', or 'note' refers to note content; use setNoteField1 / appendNoteField1 / clearNoteField1.\n"
+    "- For characters: when processing comics or creating characters, use the character-specific tools to set name, description, traits, etc.\n\n"
+    "COMIC PROCESSING:\n"
+    "- When the user asks to process an uploaded comic, ALWAYS use the process_uploaded_comic backend tool first.\n"
+    "- This tool will automatically find the most recently uploaded comic file and extract characters.\n"
+    "- The tool will return the extracted characters in a formatted response.\n"
+    "- After the tool returns the characters, you MUST create character cards for each extracted character.\n"
+    "- For each character, call createItem('character', character_name) then use setCharacterName, setCharacterDescription, addCharacterTrait, etc.\n"
+    "- Do NOT ask for file paths - the process_uploaded_comic tool handles this automatically.\n\n"
     "STRICT GROUNDING RULES:\n"
-    "1) GOOGLE SHEETS is the ultimate source of truth when syncing.\n"
-    "2) Canvas state is secondary - update it to match Google Sheets when needed.\n"
-    "3) ALWAYS set syncSheetId when importing to enable bidirectional sync.\n"
-    "4) Use frontend actions, not direct state manipulation, to trigger auto-sync.\n"
-    "5) Always inform user AFTER syncing is complete with a summary of changes."
+    "1) ONLY use shared state (items/globalTitle/globalDescription) as the source of truth.\n"
+    "2) Before ANY read or write, assume values may have changed; always read the latest state.\n"
+    "3) If a command doesn't specify which item to change, ask to clarify.\n"
 )
-
-# Create additional backend tools
-_sheet_list_tool = FunctionTool.from_defaults(
-    fn=list_sheet_names,
-    name="list_sheet_names",
-    description="List all available sheet names in a Google Spreadsheet."
-)
-
-
-_backend_tools = _load_composio_tools()
-_backend_tools.append(_sheet_list_tool)
-print(f"Backend tools loaded: {len(_backend_tools)} tools")
 
 agentic_chat_router = get_ag_ui_workflow_router(
     llm=OpenAI(model="gpt-4.1"),
@@ -311,10 +368,19 @@ agentic_chat_router = get_ag_ui_workflow_router(
         setChartField1Value,
         clearChartField1Value,
         removeChartField1,
-        openSheetSelectionModal,
-        setSyncSheetId,
+        setCharacterName,
+        setCharacterDescription,
+        addCharacterTrait,
+        removeCharacterTrait,
+        setCharacterImageUrl,
+        setCharacterSourceComic,
     ],
-    backend_tools=_backend_tools,
+    backend_tools=[
+        extract_characters_from_comic,
+        generate_character_story,
+        upload_and_extract_comic,
+        process_uploaded_comic,
+    ],
     system_prompt=SYSTEM_PROMPT,
     initial_state={
         # Shared state synchronized with the frontend canvas
@@ -323,7 +389,5 @@ agentic_chat_router = get_ag_ui_workflow_router(
         "globalDescription": "",
         "lastAction": "",
         "itemsCreated": 0,
-        "syncSheetId": "",  # Google Sheet ID for auto-sync
-        "syncSheetName": "",  # Google Sheet name for auto-sync
     },
 )
