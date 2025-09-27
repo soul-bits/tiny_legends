@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Upload, X, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Upload, X, Plus, ChevronDown, ChevronUp, Mic, MicOff } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import type { StorySlideData } from "@/lib/canvas/types";
 
@@ -27,10 +27,35 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
   const [isAutoPlay, setIsAutoPlay] = useState(false);
   const [isEditSectionExpanded, setIsEditSectionExpanded] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [isTTSPlaying, setIsTTSPlaying] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<string>("");
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const slides = data.slides || [];
   const currentSlide = slides[currentSlideIndex];
+
+  // Load available voices for TTS
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      setAvailableVoices(voices);
+      if (voices.length > 0 && !selectedVoice) {
+        // Prefer English voices, fallback to first available
+        const englishVoice = voices.find(voice => 
+          voice.lang.startsWith('en') || voice.lang.includes('en')
+        );
+        setSelectedVoice(englishVoice?.name || voices[0].name);
+      }
+    };
+
+    loadVoices();
+    speechSynthesis.addEventListener('voiceschanged', loadVoices);
+    
+    return () => {
+      speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+    };
+  }, [selectedVoice]);
 
   // Get audio duration when audio loads
   useEffect(() => {
@@ -80,10 +105,54 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
     }
   };
 
+  // TTS functions
+  const speakText = (text: string) => {
+    if (!text.trim()) return;
+    
+    // Stop any current speech
+    speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Set voice if available
+    if (selectedVoice) {
+      const voice = availableVoices.find(v => v.name === selectedVoice);
+      if (voice) {
+        utterance.voice = voice;
+      }
+    }
+    
+    // Set speech parameters
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = isMuted ? 0 : volume;
+    
+    utterance.onstart = () => setIsTTSPlaying(true);
+    utterance.onend = () => setIsTTSPlaying(false);
+    utterance.onerror = () => setIsTTSPlaying(false);
+    
+    speechSynthesis.speak(utterance);
+  };
+
+  const stopTTS = () => {
+    speechSynthesis.cancel();
+    setIsTTSPlaying(false);
+  };
+
+  const toggleTTS = () => {
+    if (isTTSPlaying) {
+      stopTTS();
+    } else {
+      const textToSpeak = currentSlide?.caption || data.title || "No text available";
+      speakText(textToSpeak);
+    }
+  };
+
   const goToSlide = (index: number) => {
     if (index >= 0 && index < slides.length) {
       setCurrentSlideIndex(index);
       pauseAudio();
+      stopTTS();
     }
   };
 
@@ -141,31 +210,51 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
     reader.readAsDataURL(file);
   };
 
-  // Auto-play functionality - start audio and advance slides based on audio duration
+  // Auto-play functionality - start audio/TTS and advance slides
   useEffect(() => {
-    if (isAutoPlay && currentSlide?.audioUrl) {
-      // Start playing audio when autoplay is enabled
-      const playAudioWithAutoplay = async () => {
-        if (audioRef.current) {
-          try {
-            await audioRef.current.play();
-            setIsPlaying(true);
-          } catch (error) {
-            console.error('Error playing audio:', error);
+    if (isAutoPlay) {
+      if (currentSlide?.audioUrl) {
+        // Start playing audio when autoplay is enabled
+        const playAudioWithAutoplay = async () => {
+          if (audioRef.current) {
+            try {
+              await audioRef.current.play();
+              setIsPlaying(true);
+            } catch (error) {
+              console.error('Error playing audio:', error);
+            }
           }
+        };
+        
+        playAudioWithAutoplay();
+      } else if (currentSlide?.caption || data.title) {
+        // If no audio but has text, use TTS
+        const textToSpeak = currentSlide?.caption || data.title;
+        if (textToSpeak) {
+          speakText(textToSpeak);
         }
-      };
-      
-      playAudioWithAutoplay();
-    } else if (isAutoPlay && !currentSlide?.audioUrl) {
-      // If no audio, use duration-based timing
-      const duration = currentSlide?.duration || 5;
+      } else {
+        // If no audio or text, use duration-based timing
+        const duration = currentSlide?.duration || 5;
+        const timer = setTimeout(() => {
+          nextSlide();
+        }, duration * 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentSlideIndex, isAutoPlay, currentSlide?.audioUrl, currentSlide?.caption, data.title]);
+
+  // Handle TTS auto-advance when TTS finishes
+  useEffect(() => {
+    if (isAutoPlay && !isTTSPlaying && !currentSlide?.audioUrl && (currentSlide?.caption || data.title)) {
+      // TTS has finished, advance to next slide
       const timer = setTimeout(() => {
         nextSlide();
-      }, duration * 1000);
+      }, 1000); // Wait a bit after TTS finishes
+      
       return () => clearTimeout(timer);
     }
-  }, [currentSlideIndex, isAutoPlay, currentSlide?.audioUrl]);
+  }, [isTTSPlaying, isAutoPlay, currentSlide?.audioUrl, currentSlide?.caption, data.title]);
 
   return (
     <div className="mt-4">
@@ -213,22 +302,36 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
               )}
 
               {/* Audio Controls Overlay */}
-              {currentSlide?.audioUrl && (
-                <div className="absolute top-2 right-2 flex gap-2">
+              <div className="absolute top-2 right-2 flex gap-2">
+                {/* TTS Controls - Always visible if there's text to read */}
+                {(currentSlide?.caption || data.title) && (
                   <button
-                    onClick={togglePlayPause}
+                    onClick={toggleTTS}
                     className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors"
+                    title={isTTSPlaying ? "Stop narration" : "Read text aloud"}
                   >
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {isTTSPlaying ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                   </button>
-                  <button
-                    onClick={() => setIsMuted(!isMuted)}
-                    className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors"
-                  >
-                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  </button>
-                </div>
-              )}
+                )}
+                
+                {/* Audio Controls - Only show if audio is uploaded */}
+                {currentSlide?.audioUrl && (
+                  <>
+                    <button
+                      onClick={togglePlayPause}
+                      className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors"
+                    >
+                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => setIsMuted(!isMuted)}
+                      className="bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-colors"
+                    >
+                      {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </button>
+                  </>
+                )}
+              </div>
 
               {/* Navigation Arrows */}
               {slides.length > 1 && (
@@ -274,6 +377,7 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                 }}
               />
             )}
+
           </div>
 
           {/* Slide Counter and Controls */}
@@ -292,6 +396,21 @@ export function StorySlide({ data, onUpdateData, isEditing = false }: StorySlide
                 />
                 Auto-play
               </label>
+              
+              {/* Voice Selection */}
+              {availableVoices.length > 0 && (
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => setSelectedVoice(e.target.value)}
+                  className="text-xs rounded border px-2 py-1 bg-white"
+                >
+                  {availableVoices.map((voice) => (
+                    <option key={voice.name} value={voice.name}>
+                      {voice.name} ({voice.lang})
+                    </option>
+                  ))}
+                </select>
+              )}
               
               {isEditing && (
                 <button
