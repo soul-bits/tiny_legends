@@ -92,33 +92,119 @@ def convert_story_to_slides(story_content: Annotated[str, "The 7-line story cont
     try:
         print(f"🎬 [TOOL CALL] convert_story_to_slides called with {len(story_content)} characters")
         
-        # Split the story into lines and clean them
-        lines = [line.strip() for line in story_content.split('\n') if line.strip()]
+        SYSTEM_PROMPT = """You are a children's story expert who specializes in breaking down stories into 9 illustrated story cards.
+
+    For each story card, you must provide:
+    1. Content: 1-2 sentences that tell part of the story
+    2. Illustration Prompt: Detailed description for creating a visual illustration based on the content
+    3. Spoken Narration: Narration script optimized for reading aloud to children
+
+    Guidelines:
+    - Define the characters and their descriptions in the story illustration prompt.
+    - Make the story engaging and age-appropriate for children
+    - Each card should advance the plot naturally
+    - Illustration prompts should be vivid and descriptive with at max 1 chat bubble
+    - Spoken narration should flow smoothly when read aloud
+    - Maintain consistency in characters and setting
+    - Ensure the story has a clear beginning, middle, and end across all 9 cards
+
+    The story should be broken into these 9 parts:
+    1. Introduction/Setting (Cards 1-2)
+    2. Rising Action/Problem (Cards 3-4) 
+    3. Climax/Adventure (Cards 5-6)
+    4. Resolution (Cards 7-8)
+    5. Conclusion (Card 9)
+
+    IMPORTANT: Return the response as a JSON object with this EXACT structure:
+    {
+    "title": "Story Title",
+    "summary": "Brief story summary",
+    "cards": [
+        {
+        "card_number": 1,
+        "content": "Story content for card 1",
+        "illustration_prompt": "Illustration description for card 1",
+        "spoken_narration": "Narration for card 1"
+        },
+        {
+        "card_number": 2,
+        "content": "Story content for card 2",
+        "illustration_prompt": "Illustration description for card 2",
+        "spoken_narration": "Narration for card 2"
+        },
+        ... (continue for all 9 cards)
+    ]
+    }
+
+    Do NOT wrap the response in any additional object or array."""
+
+        user_prompt = f"""Please break down this story into 9 illustrated story cards:
+
+    Story Summary: {story_content}
+
+    Create engaging, child-friendly content with vivid illustration prompts and smooth narration for each card."""
+
+        llm = OpenAI(model="gpt-4o-mini")
         
-        # Ensure we have exactly 7 lines
-        if len(lines) < 7:
-            # Pad with generic lines if needed
-            while len(lines) < 7:
-                lines.append("The adventure continues...")
-        elif len(lines) > 7:
-            # Take only the first 7 lines
-            lines = lines[:7]
+        # Create the full prompt with system and user messages
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt}
+        ]
         
-        # Create slides data structure
-        slides = []
-        for i, line in enumerate(lines):
-            slides.append({
-                "id": f"slide-{i+1}",
-                "imageUrl": "",
-                "audioUrl": "",
-                "caption": line,
-                "duration": 6  # 6 seconds per slide for 7-year-olds
-            })
+        response = llm.chat(messages)
         
-        result = {
-            "title": "Story Slides",
-            "slides": slides
-        }
+        # Parse the JSON response
+        import json
+        import re
+        
+        # Clean the response by removing markdown code blocks
+        response_text = response.message.content.strip()
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]  # Remove ```json
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]  # Remove ```
+        response_text = response_text.strip()
+        
+        try:
+            story_data = json.loads(response_text)
+            
+            # Extract cards and convert to slides format
+            slides = []
+            for card in story_data.get("cards", []):
+                slides.append({
+                    "card_number": card.get("card_number", 1),
+                    "content": card.get("content", ""),
+                    "illustration_prompt": card.get("illustration_prompt", ""),
+                    "spoken_narration": card.get("spoken_narration", ""),
+                    "illustration_path": None,
+                    "audio_path": None
+                })
+            
+            result = {
+                "title": story_data.get("title", "Story Slides"),
+                "slides": slides
+            }
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ [TOOL CALL] JSON parsing error: {str(e)}")
+            # Fallback: create simple slides from original content
+            lines = [line.strip() for line in story_content.split('\n') if line.strip()]
+            slides = []
+            for i, line in enumerate(lines[:7]):  # Take first 7 lines
+                slides.append({
+                    "card_number": i + 1,
+                    "content": line,
+                    "illustration_prompt": f"Create an illustration for: {line}",
+                    "spoken_narration": line,
+                    "illustration_path": None,
+                    "audio_path": None
+                })
+            
+            result = {
+                "title": "Story Slides",
+                "slides": slides
+            }
         
         print(f"✅ [TOOL CALL] convert_story_to_slides completed: created {len(slides)} slides")
         return result
