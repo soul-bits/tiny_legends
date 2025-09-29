@@ -89,12 +89,12 @@ Before running Tiny Legends, ensure you have the following installed:
    ```
    
    This will start:
-   - Frontend: http://localhost:3001
+   - Frontend: http://localhost:3000
    - Backend Agent: http://localhost:9000
 
 4. **Start Creating Stories!**
    
-   Open http://localhost:3001 and:
+   Open http://localhost:3000 and:
    - Upload a comic PDF file by dragging it to the canvas
    - Watch as AI extracts characters and creates character cards
    - Ask the AI to generate a story: "Create a story using the characters on the canvas"
@@ -143,7 +143,7 @@ Run these commands using your preferred package manager (pnpm, npm, yarn, or bun
 
 - `dev` - Starts both frontend and AI agent servers concurrently
 - `dev:debug` - Starts development servers with debug logging enabled
-- `dev:ui` - Starts only the Next.js frontend server (port 3001)
+- `dev:ui` - Starts only the Next.js frontend server (port 3000)
 - `dev:agent` - Starts only the Python AI agent server (port 9000)
 - `install:agent` - Installs Python dependencies for the AI agent
 - `build` - Builds the Next.js application for production
@@ -336,7 +336,7 @@ If you see "I'm having trouble connecting to my tools":
 If you see "[Errno 48] Address already in use":
 1. The agent might still be running from a previous session
 2. Kill the process using the port: `lsof -ti:9000 | xargs kill -9`
-3. For the UI port: `lsof -ti:3001 | xargs kill -9`
+3. For the UI port: `lsof -ti:3000 | xargs kill -9`
 
 ### State Synchronization Issues
 If the canvas and AI seem out of sync:
