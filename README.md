@@ -5,6 +5,8 @@ Welcome to Tiny Legends! An innovative AI-powered platform that transforms comic
 ## About Tiny Legends
 Tiny Legends is a complete AI-powered platform that creates engaging, age-appropriate content for children aged 5-10. It combines comic book analysis, AI character extraction, story generation, and visual storytelling to create interactive educational experiences. The platform uses advanced AI models to automatically extract characters from comics, generate age-appropriate stories, and create illustrated story slides with narration.
 
+> **⚠️ Hackathon Project Disclaimer**: This is a hackathon project created for demonstration purposes and is **not production-ready**. It may contain bugs, security vulnerabilities, and lacks enterprise-grade features. Use at your own risk and do not deploy to production environments.
+
 ### 🎥 Demo Video
 Watch Tiny Legends in action: [https://youtu.be/dog5FwRDRKM](https://youtu.be/dog5FwRDRKM)
 
