@@ -8,7 +8,8 @@ Tiny Legends is a complete AI-powered platform that creates engaging, age-approp
 > **⚠️ Hackathon Project Disclaimer**: This is a hackathon project created for demonstration purposes and is **not production-ready**. It may contain bugs, security vulnerabilities, and lacks enterprise-grade features. Use at your own risk and do not deploy to production environments.
 
 ### 🎥 Demo Video
-Watch Tiny Legends in action: [https://youtu.be/dog5FwRDRKM](https://youtu.be/dog5FwRDRKM)
+Watch Tiny Legends in action: [![Watch the video](https://img.youtube.com/vi/d2wVIfOglys/maxresdefault.jpg)](https://youtu.be/d2wVIfOglys)
+
 
 ## Core Features
 
